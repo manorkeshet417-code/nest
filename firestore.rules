@@ -1,6 +1,7 @@
 rules_version = '2';
 
-// Nest: only members of a group can see or write anything inside it.
+// Nest: only members of a group can see or write anything inside it;
+// private chats and calls are visible only to the two people in them.
 // Paste this into Firebase console > Firestore Database > Rules, then Publish.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,12 +13,13 @@ service cloud.firestore {
     function isOwner(gid) { return signedIn() && groupDoc(gid).data.ownerId == me(); }
     function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
-    // Profiles: name and photo only. Everyone signed in can read; each person writes their own.
+    // Profiles: name, photo and birthday. Everyone signed in can read; each person writes their own.
     match /users/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && me() == uid
-        && request.resource.data.keys().hasOnly(['name', 'photo'])
-        && request.resource.data.name is string && request.resource.data.name.size() <= 40;
+        && request.resource.data.keys().hasOnly(['name', 'photo', 'birthday'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 40
+        && (!('birthday' in request.resource.data) || (request.resource.data.birthday is string && request.resource.data.birthday.size() <= 10));
     }
 
     // Invite codes: anyone signed in who knows the code can look up which group it opens.
@@ -46,8 +48,8 @@ service cloud.firestore {
         || (me() in resource.data.members && resource.data.ownerId != me()
             && onlyChanges(['members'])
             && request.resource.data.members == resource.data.members.removeAll([me()]))
-        // members update the "last activity" line shown in the group list
-        || (me() in resource.data.members && onlyChanges(['lastMessage', 'lastAt']))
+        // members update the activity line and the "typing…" indicator
+        || (me() in resource.data.members && onlyChanges(['lastMessage', 'lastAt', 'lastBy', 'typing']))
       );
 
       allow delete: if signedIn() && resource.data.ownerId == me();
@@ -55,7 +57,7 @@ service cloud.firestore {
       match /posts/{pid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.authorId == me();
-        allow update: if isMember(gid) && (resource.data.authorId == me() || onlyChanges(['likes', 'commentCount']));
+        allow update: if isMember(gid) && (resource.data.authorId == me() || onlyChanges(['likes', 'commentCount', 'votes']));
         allow delete: if isMember(gid) && (resource.data.authorId == me() || isOwner(gid));
 
         match /comments/{cid} {
@@ -68,6 +70,7 @@ service cloud.firestore {
       match /messages/{mid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.authorId == me();
+        allow update: if isMember(gid) && onlyChanges(['reactions']);
         allow delete: if isMember(gid) && (resource.data.authorId == me() || isOwner(gid));
       }
 
@@ -75,6 +78,13 @@ service cloud.firestore {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.createdBy == me();
         allow update: if isMember(gid) && (resource.data.createdBy == me() || onlyChanges(['rsvp']));
+        allow delete: if isMember(gid) && (resource.data.createdBy == me() || isOwner(gid));
+      }
+
+      match /lists/{lid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.createdBy == me();
+        allow update: if isMember(gid) && onlyChanges(['items', 'updatedAt', 'title']);
         allow delete: if isMember(gid) && (resource.data.createdBy == me() || isOwner(gid));
       }
 
@@ -88,6 +98,43 @@ service cloud.firestore {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.by == me();
         allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+    }
+
+    // Private chats between two people. The id is the two user ids, sorted, joined by "_".
+    match /chats/{cid} {
+      function chatDoc() { return get(/databases/$(database)/documents/chats/$(cid)); }
+      function inChat() { return signedIn() && me() in chatDoc().data.members; }
+
+      allow read: if signedIn() && (resource == null || me() in resource.data.members);
+      allow create: if signedIn()
+        && request.resource.data.members.size() == 2
+        && me() in request.resource.data.members
+        && cid == request.resource.data.members.join('_');
+      allow update: if signedIn() && me() in resource.data.members
+        && onlyChanges(['lastMessage', 'lastAt', 'lastBy', 'reads', 'typing']);
+
+      match /messages/{mid} {
+        allow read: if inChat();
+        allow create: if inChat() && request.resource.data.authorId == me();
+        allow update: if inChat() && onlyChanges(['reactions']);
+        allow delete: if inChat() && resource.data.authorId == me();
+      }
+    }
+
+    // Voice/video call signaling: only the caller and the callee can see or touch a call.
+    match /calls/{callId} {
+      function callDoc() { return get(/databases/$(database)/documents/calls/$(callId)).data; }
+      function inCall() { return signedIn() && (me() == callDoc().from || me() == callDoc().to); }
+
+      allow read: if signedIn() && (resource == null || me() == resource.data.from || me() == resource.data.to);
+      allow create: if signedIn() && request.resource.data.from == me()
+        && request.resource.data.to is string && request.resource.data.to != me();
+      allow update: if signedIn() && (me() == resource.data.from || me() == resource.data.to)
+        && request.resource.data.from == resource.data.from && request.resource.data.to == resource.data.to;
+
+      match /{side}/{cand} {
+        allow read, create: if inCall() && (side == 'fromCandidates' || side == 'toCandidates');
       }
     }
   }

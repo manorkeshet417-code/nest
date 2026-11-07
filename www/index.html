@@ -282,6 +282,138 @@ button.row:active{background:var(--fill2)}
   .glass,.navbar.scrolled{background:var(--bg2);-webkit-backdrop-filter:none;backdrop-filter:none}
   .glass{border-color:var(--sep)}
 }
+
+/* =================== v2: private chats, calls, rich messages, polls, lists =================== */
+#app.solo{padding-bottom:calc(40px + env(safe-area-inset-bottom,0px))}
+#app.chat-pad{padding-bottom:calc(160px + env(safe-area-inset-bottom,0px))}
+#app.chat-pad.solo{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.nb-tbtn{display:flex;align-items:center;gap:6px;max-width:210px;min-height:44px;font-weight:600}
+.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nb-person{display:flex;align-items:center;gap:8px;max-width:210px;font-weight:600}
+.nb-back-t{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.when{display:flex;flex-direction:column;align-items:flex-end;gap:6px;font-size:14px;color:var(--label2);white-space:nowrap;align-self:flex-start;padding-top:4px}
+.when.un{color:var(--accent);font-weight:600}
+.udot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.row .sub.acc{color:var(--accent);font-style:normal}
+.tip{display:flex;gap:12px;align-items:center;padding:14px 16px;background:var(--bg2);border-radius:var(--r-list);font-size:15px;line-height:1.4;margin-bottom:12px}
+.tip svg{flex:none;color:var(--accent)}
+.tip .body{flex:1;min-width:0}
+.tip.bday{background:color-mix(in srgb,var(--g-pink) 14%,var(--bg2))}
+.tip.bday svg{color:var(--g-pink)}
+.link-btn{display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:15px;font-weight:600;min-height:40px;padding:0 6px}
+.link-btn.red{color:var(--red)}
+.icon-btn.sm{width:34px;height:34px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 14px;border-radius:999px;background:var(--bg2);font-size:15px}
+.chip:active{background:var(--fill)}
+
+/* feed: polls */
+.poll-ed{display:flex;flex-direction:column;gap:8px}
+.poll-ed input{border:0;background:var(--fill2);border-radius:12px;min-height:44px;padding:0 14px;font-size:16px;outline:none}
+.poll-ed input:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.poll-ed .link-btn{align-self:flex-start}
+.post-text.q{font-weight:600;font-size:18px}
+.poll{display:flex;flex-direction:column;gap:8px;padding:0 14px 6px}
+.popt{position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:46px;padding:0 14px;border-radius:12px;background:var(--fill2);text-align:start}
+.popt .pfill{position:absolute;inset:0 0 0 auto;background:color-mix(in srgb,var(--accent) 22%,transparent);transition:width .4s cubic-bezier(.2,.9,.2,1)}
+.popt .ptxt{position:relative;display:flex;align-items:center;gap:6px;font-size:16px}
+.popt .pct{position:relative;font-weight:700;font-variant-numeric:tabular-nums;color:var(--label2);font-size:15px}
+.popt.on{box-shadow:inset 0 0 0 2px var(--accent)}
+.popt.on .ptxt{color:var(--accent);font-weight:600}
+.pfoot{font-size:13px;color:var(--label2);padding:2px 2px 4px}
+
+/* chat */
+.chat-bar{flex-direction:column;align-items:stretch;gap:0;padding:6px;border-radius:24px}
+.chat-bar.solo{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.chat-bar .crow{display:flex;align-items:flex-end;gap:4px}
+.chat-bar .crow>.icon-btn{width:40px;height:40px}
+.chat-bar.rec .crow{align-items:center;gap:10px;padding-inline-start:6px}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:var(--red);animation:blink 1s infinite}
+.rec-t{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:600}
+@keyframes blink{50%{opacity:.25}}
+.reply-bar{display:flex;align-items:center;gap:8px;padding:4px 8px 6px;margin-bottom:4px;border-bottom:.5px solid var(--sep);color:var(--accent)}
+.reply-bar .body{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px;line-height:1.3}
+.reply-bar b{color:var(--accent)}
+.reply-bar span span{color:var(--label2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg{transition:background-color .6s}
+.msg.flash .bubble{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent)}
+.mcol{display:flex;flex-direction:column;max-width:80%;min-width:0}
+.msg.mine .mcol{align-items:flex-end}
+.bubble{max-width:100%;white-space:normal;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.bubble .mtext{white-space:pre-wrap;display:block}
+.bubble .mtext{-webkit-user-select:text;user-select:text}
+.bubble a{color:inherit;text-decoration:underline}
+.bubble.pic{padding:4px}
+.bubble.pic .msg-time{position:absolute;bottom:8px;inset-inline-end:10px;background:rgba(0,0,0,.45);color:#fff;padding:1px 7px;border-radius:999px;opacity:1}
+.bubble{position:relative}
+.mimg{display:block;border-radius:15px;overflow:hidden;margin:-1px -4px 4px;max-width:250px}
+.bubble.pic .mimg{margin:0}
+.mimg img{display:block;width:100%;max-height:330px;object-fit:cover}
+.quote{display:flex;flex-direction:column;gap:1px;text-align:start;width:100%;padding:5px 9px;margin:2px 0 5px;border-radius:10px;border-inline-start:3px solid currentColor;background:rgba(127,127,127,.16);font-size:13px;line-height:1.3}
+.msg:not(.mine) .quote{color:var(--accent)}
+.quote span{color:inherit;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.msg-time{display:flex;align-items:center;gap:3px;justify-content:flex-end}
+.rcpt{display:inline-grid;opacity:.75}
+.rcpt.read{opacity:1}
+.reacts{display:flex;gap:4px;margin-top:-6px;padding:0 6px;position:relative;z-index:1}
+.rchip{min-height:26px;padding:0 7px;border-radius:999px;background:var(--bg2);box-shadow:0 0 0 2px var(--bg);font-size:14px;font-variant-numeric:tabular-nums}
+.rchip.on{background:color-mix(in srgb,var(--accent) 20%,var(--bg2))}
+.seen{font-size:12px;color:var(--label2);padding:2px 6px 0}
+.sys{display:flex;justify-content:center;margin:10px 0}
+.sys-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--bg2);font-size:13px;font-weight:600;color:var(--label2)}
+.sys-pill.miss{color:var(--red)}
+.typing{min-height:20px;font-size:13px;color:var(--label2);padding:4px 40px 0;font-style:italic}
+.aud{display:flex;align-items:center;gap:8px;min-width:190px;padding:2px 0}
+.aud-btn{width:34px;height:34px;flex:none;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,currentColor 16%,transparent)}
+.aud-bar{flex:1;height:4px;border-radius:2px;background:color-mix(in srgb,currentColor 25%,transparent);overflow:hidden;direction:ltr}
+.aud-bar span{display:block;height:100%;width:0;background:currentColor;transition:width .2s linear}
+.aud-t{font-size:13px;font-variant-numeric:tabular-nums;opacity:.8;min-width:32px;text-align:end}
+.react-row{display:flex;justify-content:space-around;padding:12px 10px;border-bottom:.5px solid var(--sep)}
+.react-row button{width:46px;height:46px;border-radius:50%;font-size:28px;display:grid;place-items:center}
+.react-row button.on{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.react-row button:active{transform:scale(1.2)}
+
+/* events: birthdays */
+.ev.bd .ev-date .m{background:var(--g-pink)}
+
+/* shared lists */
+.lst{--inset:52px}
+.row.li{min-height:50px;padding:6px 8px 6px 16px}
+.row.li .check{width:24px;height:24px}
+.row.li .by{font-size:12px;color:var(--label2);background:var(--fill2);padding:2px 7px;border-radius:6px}
+.row.li.done .t{color:var(--label2);text-decoration:line-through}
+.check{width:26px;height:26px;flex:none;border-radius:50%;border:1.5px solid var(--label3);display:grid;place-items:center;color:transparent;transition:background-color .15s,border-color .15s}
+.done .check{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.add-row{display:flex;align-items:center;gap:12px;min-height:50px;padding:6px 16px;background:var(--bg2)}
+.add-row .plus{width:24px;height:24px;flex:none;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center}
+.add-row input{flex:1;min-width:0;border:0;background:none;font-size:17px;min-height:38px;outline:none}
+.add-row input::placeholder{color:var(--label3)}
+
+/* calls */
+.call{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;justify-content:space-between;align-items:center;color:#fff;background:radial-gradient(120% 80% at 50% 0%,#3a3a44,#0e0e12 70%);padding:calc(70px + env(safe-area-inset-top,0px)) 20px calc(40px + env(safe-area-inset-bottom,0px));overflow:hidden}
+.call .rv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000;display:none}
+.call.video.live .rv{display:block}
+.call .lv{position:absolute;top:calc(60px + env(safe-area-inset-top,0px));left:14px;width:108px;height:150px;object-fit:cover;border-radius:16px;transform:scaleX(-1);box-shadow:0 8px 20px rgba(0,0,0,.4);z-index:2;background:#222}
+.call .lv[hidden]{display:none}
+.call-top{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.call.video.live .call-top{flex-direction:row;gap:10px;align-self:flex-end;background:rgba(0,0,0,.35);padding:6px 14px 6px 6px;border-radius:999px;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.call.video.live .call-av .av-img,.call.video.live .call-av .av-ini{width:36px!important;height:36px!important;font-size:16px!important}
+.call-name{font-size:30px;font-weight:600}
+.call.video.live .call-name{font-size:16px}
+.call-st{font-size:17px;opacity:.8;font-variant-numeric:tabular-nums}
+.call.video.live .call-st{font-size:14px}
+.call-ctl{position:relative;z-index:2;display:flex;gap:22px;justify-content:center;flex-wrap:wrap}
+.call-ctl.two{gap:90px}
+.cbtn-w{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;opacity:.95}
+.cbtn{width:68px;height:68px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.18);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.cbtn.on{background:#fff;color:#111}
+.cbtn.red{background:#ff3b30;color:#fff}
+.cbtn.green{background:#34c759;color:#fff}
+.cbtn:active{transform:scale(.94)}
+.incoming .call-av{animation:pulse 1.6s ease-in-out infinite;border-radius:50%}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.35)}50%{box-shadow:0 0 0 22px rgba(255,255,255,0)}}
+:root:not(.native) .call{padding-top:110px}
+@media (prefers-reduced-motion: reduce){.incoming .call-av,.rec-dot{animation:none}}
 </style>
 
 <div class="stage">
@@ -297,608 +429,4 @@ button.row:active{background:var(--fill2)}
 </div>
 <input type="file" id="file" accept="image/*" hidden>
 
-<script type="module">
-'use strict';
-// Firebase web config (Firebase console > Project settings > Your apps). These values are public;
-// firestore.rules is what protects the data. Off the website (e.g. the Claude preview) the app runs locally.
-const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyDkGS4U9-2hugToYYNvAEzUdMC6gXhjkAI',
-  authDomain: 'nest-family-d163e.firebaseapp.com',
-  projectId: 'nest-family-d163e',
-  storageBucket: 'nest-family-d163e.firebasestorage.app',
-  messagingSenderId: '706079879278',
-  appId: '1:706079879278:web:571f2795a863deeecd767f'
-};
-
-const root=document.documentElement;root.lang='he';root.dir='rtl';
-const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
-if(standalone())root.classList.add('native');
-const app=document.getElementById('app'),navEl=document.getElementById('nav'),sheetEl=document.getElementById('sheet'),screenEl=document.getElementById('screen'),fileEl=document.getElementById('file');
-const $=s=>document.querySelector(s);
-const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const haptic=p=>{try{navigator.vibrate&&navigator.vibrate(p||8)}catch(e){}};
-const onSite=/\.github\.io$/.test(location.hostname);
-const params=new URLSearchParams(location.search);
-const LS={get(k){try{const v=localStorage.getItem(k);return v===null?undefined:JSON.parse(v)}catch(e){return undefined}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-
-/* ---------- icons ---------- */
-const I={
-  house:'<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v11h13V9"/><path d="M12 17.5s-3-1.8-3-4a1.6 1.6 0 0 1 3-.9 1.6 1.6 0 0 1 3 .9c0 2.2-3 4-3 4z"/>',
-  feed:'<rect x="4" y="3.5" width="16" height="17" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/>',
-  feedF:'<path d="M7 3h10a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm1 4.3a.8.8 0 0 0 0 1.6h8a.8.8 0 0 0 0-1.6zm0 4a.8.8 0 0 0 0 1.6h8a.8.8 0 0 0 0-1.6zm0 4a.8.8 0 0 0 0 1.6h5a.8.8 0 0 0 0-1.6z" fill="currentColor" stroke="none"/>',
-  chat:'<path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L4.5 20l1.2-3.6C4.3 15 3.5 13.1 3.5 11c0-3.9 3.8-7 8.5-7z"/>',
-  chatF:'<path d="M12 3.5c5 0 9 3.3 9 7.5s-4 7.5-9 7.5c-1 0-1.9-.1-2.8-.3l-4.9 2.3c-.5.2-1-.2-.8-.7l1.2-3.6C3.6 14.8 3 13 3 11c0-4.2 4-7.5 9-7.5z" fill="currentColor" stroke="none"/>',
-  cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
-  calF:'<path d="M8 2.5a1 1 0 0 1 1 1V4h6v-.5a1 1 0 1 1 2 0V4h.5A3.5 3.5 0 0 1 21 7.5V9H3V7.5A3.5 3.5 0 0 1 6.5 4H7v-.5a1 1 0 0 1 1-1zM3 10.5h18v7a3.5 3.5 0 0 1-3.5 3.5h-11A3.5 3.5 0 0 1 3 17.5z" fill="currentColor" stroke="none"/>',
-  photo:'<rect x="3" y="4.5" width="18" height="15" rx="3"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M3.5 17l5-5 4 4 2.5-2.5L20.5 19"/>',
-  photoF:'<path d="M6 4h12a3 3 0 0 1 3 3v8.6l-4.4-4.4a1 1 0 0 0-1.4 0L13 13.4 9.7 10.1a1 1 0 0 0-1.4 0L3 15.4V7a3 3 0 0 1 3-3zm2.5 3.3a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6zM3 18.2l6-6 7.8 7.8H6a3 3 0 0 1-3-1.8zm11.4-3.4 1.5-1.5 5.1 5.1A3 3 0 0 1 18.5 20h-.5z" fill="currentColor" stroke="none"/>',
-  people:'<circle cx="9" cy="8" r="3.3"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 4.8a3.3 3.3 0 0 1 0 6.4M17.5 14.2c2 .7 3.5 2.6 3.5 5.3"/>',
-  peopleF:'<g fill="currentColor" stroke="none"><circle cx="9" cy="8" r="3.8"/><path d="M2.5 19.2c0-3.6 2.9-6.2 6.5-6.2s6.5 2.6 6.5 6.2c0 .5-.4.8-.8.8H3.3c-.4 0-.8-.3-.8-.8z"/><path d="M15.5 4.2a3.8 3.8 0 0 1 0 7.6 5.3 5.3 0 0 0 0-7.6zM17.3 13.6c2.4.8 4.2 2.9 4.2 5.6 0 .5-.4.8-.8.8h-3.4c.1-2.6-.1-4.6 0-6.4z"/></g>',
-  heart:'<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>',
-  comment:'<path d="M12 4.5c4.4 0 8 2.9 8 6.5s-3.6 6.5-8 6.5c-.9 0-1.8-.1-2.6-.4L5 19l1-3.3C4.8 14.4 4 12.8 4 11c0-3.6 3.6-6.5 8-6.5z"/>',
-  plus:'<path d="M12 5v14M5 12h14"/>',
-  plusc:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
-  more:'<g fill="currentColor" stroke="none"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></g>',
-  back:'<path d="M9.5 5l7 7-7 7" stroke-width="2.4"/>',
-  chev:'<path d="M14.5 6l-6 6 6 6" stroke-width="2.2"/>',
-  next:'<path d="M14.5 6l-6 6 6 6" stroke-width="2.2"/>',
-  prev:'<path d="M9.5 6l6 6-6 6" stroke-width="2.2"/>',
-  send:'<path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" stroke-width="2.4"/>',
-  camera:'<path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8l1.4-2h4.6l1.4 2h1.8A2.5 2.5 0 0 1 20 8.5V17a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17z"/><circle cx="12" cy="12.5" r="3.5"/>',
-  xmark:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke-width="2.2"/>',
-  check:'<path d="M5 12.5l4.5 4.5L19 7" stroke-width="2.2"/>',
-  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
-  share:'<path d="M12 3.5v11M8 7.5l4-4 4 4M6.5 11H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5"/>',
-  copy:'<rect x="8.5" y="8.5" width="11" height="12" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/>',
-  key:'<circle cx="8" cy="14" r="4"/><path d="M11 11l8.5-8.5M16 6l2.5 2.5M14 8l2 2"/>',
-  pin:'<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
-  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-  lock:'<rect x="5" y="10.5" width="14" height="10.5" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
-  sparkles:'<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
-  warn:'<path d="M12 4l9 16H3zM12 10v4.5M12 17.5h.01"/>',
-  trash:'<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>'
-};
-const icon=(n,s,sw)=>`<svg width="${s||22}" height="${s||22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw||1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
-
-/* ---------- small helpers ---------- */
-const COLORS=['orange','blue','green','pink','purple','teal'];
-const EMOJIS=['🏠','❤️','🌳','👨‍👩‍👧‍👦','🎉','🍽️','✈️','⚽','🐶','🌻'];
-const MONTHS=['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
-const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-const pad=n=>String(n).padStart(2,'0');
-const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-const dayKey=t=>iso(new Date(t));
-const hhmm=t=>{const d=new Date(t);return d.getHours()+':'+pad(d.getMinutes())};
-const ago=t=>{const s=(Date.now()-t)/1000;if(s<60)return 'עכשיו';if(s<3600)return `לפני ${Math.floor(s/60)} דק׳`;if(s<86400)return `לפני ${Math.floor(s/3600)} שע׳`;if(s<172800)return 'אתמול';return new Date(t).toLocaleDateString('he-IL',{day:'numeric',month:'short'})};
-const dayLabel=t=>{const k=dayKey(t),n=new Date();if(k===iso(n))return 'היום';n.setDate(n.getDate()-1);if(k===iso(n))return 'אתמול';return new Date(t).toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'})};
-const daysTo=s=>{const p=s.split('-').map(Number),t=new Date(p[0],p[1]-1,p[2],12),n=new Date();n.setHours(12,0,0,0);return Math.round((t-n)/864e5)};
-const first=n=>String(n||'').trim().split(/\s+/)[0];
-const nameOf=u=>(u&&u.name)||'בן/בת משפחה';
-const hash=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)};
-const userColor=id=>`var(--g-${COLORS[hash(id)%COLORS.length]})`;
-function newCode(){const a='ABCDEFGHJKMNPQRSTUVWXYZ23456789',b=new Uint8Array(6);crypto.getRandomValues(b);return Array.from(b,x=>a[x%a.length]).join('')}
-function avatar(u,size){
-  size=size||36;
-  if(u&&u.photo)return `<img class="av-img" src="${esc(u.photo)}" width="${size}" height="${size}" alt="" referrerpolicy="no-referrer" loading="lazy">`;
-  return `<span class="av-ini" style="--c:${userColor(u&&u.id||'x')};width:${size}px;height:${size}px;font-size:${Math.round(size*.42)}px" aria-hidden="true">${esc(nameOf(u).trim().charAt(0))}</span>`;
-}
-const gtile=(g,cls)=>`<span class="gtile ${cls||''}" style="--c:var(--g-${esc(g.color||'orange')})" aria-hidden="true">${esc(g.emoji||'🏠')}</span>`;
-
-// Photos are shrunk in the browser and stored in the database (no paid file storage needed)
-async function loadImg(file){const url=URL.createObjectURL(file);try{const img=new Image();img.src=url;await img.decode();return img}finally{setTimeout(()=>URL.revokeObjectURL(url),2000)}}
-function shrink(img,max,q){
-  const r=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),w=Math.max(1,Math.round(img.naturalWidth*r)),h=Math.max(1,Math.round(img.naturalHeight*r));
-  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
-  let d=c.toDataURL('image/jpeg',q);while(d.length>850000&&q>.35){q-=.1;d=c.toDataURL('image/jpeg',q)}
-  return {data:d,w:w,h:h};
-}
-async function prepImage(file){const img=await loadImg(file);return {full:shrink(img,1600,.8),thumb:shrink(img,420,.72)}}
-
-/* ======================================================================
-   Backends: the same API, served by Firebase (live) or kept in this page only (local preview)
-   ====================================================================== */
-function LocalBackend(){
-  const me={id:'me',name:LS.get('nest.localName')||'',photo:''};
-  const groups={},sub={},L=new Map();
-  let uid=0;const id=()=>'l'+(++uid)+Math.random().toString(36).slice(2,6);
-  const emit=k=>{const s=L.get(k);if(s)s.forEach(f=>f())};
-  const on=(k,f)=>{if(!L.has(k))L.set(k,new Set());L.get(k).add(f);f();return ()=>L.get(k).delete(f)};
-  const box=gid=>sub[gid]||(sub[gid]={posts:[],comments:{},messages:[],events:[],images:[],imageData:{}});
-  const touch=(gid,text)=>{const g=groups[gid];if(g){g.lastMessage=text.slice(0,80);g.lastAt=Date.now();emit('groups')}};
-  const sort={posts:(a,b)=>b.createdAt-a.createdAt,messages:(a,b)=>b.createdAt-a.createdAt,images:(a,b)=>b.createdAt-a.createdAt,events:(a,b)=>a.date<b.date?-1:a.date>b.date?1:0};
-  const copy=x=>JSON.parse(JSON.stringify(x));
-  let authCb=null;
-  return {
-    mode:'local',
-    onAuth(cb){authCb=cb;setTimeout(()=>cb(me.name?copy(me):null),150);return ()=>{}},
-    async signIn(name){me.name=name;LS.set('nest.localName',name);authCb&&authCb(copy(me))},
-    async signOut(){me.name='';LS.set('nest.localName','');authCb&&authCb(null)},
-    async saveProfile(o){Object.assign(me,o);LS.set('nest.localName',me.name);emit('groups')},
-    async users(ids){const o={};ids.forEach(i=>o[i]=i==='me'?copy(me):{id:i,name:''});return o},
-    watchGroups(cb){return on('groups',()=>cb(Object.values(groups).filter(g=>g.members.includes('me')).map(copy)))},
-    async createGroup(o){const gid=id();groups[gid]={id:gid,name:o.name,emoji:o.emoji,color:o.color,ownerId:'me',members:['me'],inviteCode:newCode(),lastMessage:'',lastAt:Date.now()};box(gid);emit('groups');return gid},
-    async findInvite(code){const g=Object.values(groups).find(x=>x.inviteCode===code);return g?{groupId:g.id,groupName:g.name,emoji:g.emoji,color:g.color}:null},
-    async joinGroup(code,gid){const g=groups[gid];if(g&&!g.members.includes('me'))g.members.push('me');emit('groups')},
-    async updateGroup(g,p){Object.assign(groups[g.id],p);emit('groups')},
-    async newInviteCode(g){groups[g.id].inviteCode=newCode();emit('groups');return groups[g.id].inviteCode},
-    async removeMember(gid,u){const g=groups[gid];g.members=g.members.filter(x=>x!==u);emit('groups')},
-    async leaveGroup(gid){const g=groups[gid];g.members=g.members.filter(x=>x!=='me');emit('groups')},
-    async deleteGroup(g){delete groups[g.id];delete sub[g.id];emit('groups')},
-    watch(gid,kind,cb){return on(gid+':'+kind,()=>cb(box(gid)[kind].slice().sort(sort[kind]).map(copy)))},
-    watchComments(gid,pid,cb){return on(gid+':c:'+pid,()=>cb((box(gid).comments[pid]||[]).slice().sort((a,b)=>a.createdAt-b.createdAt).map(copy)))},
-    async addPhoto(gid,img){const iid=id();box(gid).images.unshift({id:iid,by:'me',thumb:img.thumb.data,w:img.full.w,h:img.full.h,createdAt:Date.now()});box(gid).imageData[iid]=img.full.data;emit(gid+':images');return iid},
-    async addPhotos(gid,imgs){for(const im of imgs)await this.addPhoto(gid,im);touch(gid,`${me.name} הוסיף/ה ${imgs.length===1?'תמונה':imgs.length+' תמונות'} לאלבום`)},
-    async addPost(gid,o){const imageId=o.image?await this.addPhoto(gid,o.image):'';box(gid).posts.push({id:id(),authorId:'me',text:o.text||'',imageId:imageId,createdAt:Date.now(),likes:[],commentCount:0});emit(gid+':posts');touch(gid,o.text?`${me.name}: ${o.text}`:`${me.name} שיתף/ה תמונה`)},
-    async toggleLike(gid,p){const x=box(gid).posts.find(q=>q.id===p.id);if(!x)return;x.likes=x.likes.includes('me')?x.likes.filter(i=>i!=='me'):x.likes.concat('me');emit(gid+':posts')},
-    async deletePost(gid,p){const b=box(gid);b.posts=b.posts.filter(q=>q.id!==p.id);if(p.imageId){b.images=b.images.filter(i=>i.id!==p.imageId);emit(gid+':images')}emit(gid+':posts')},
-    async addComment(gid,pid,text){const b=box(gid);(b.comments[pid]=b.comments[pid]||[]).push({id:id(),authorId:'me',text:text,createdAt:Date.now()});const p=b.posts.find(q=>q.id===pid);if(p)p.commentCount++;emit(gid+':c:'+pid);emit(gid+':posts')},
-    async deleteComment(gid,pid,cid){const b=box(gid);b.comments[pid]=(b.comments[pid]||[]).filter(c=>c.id!==cid);const p=b.posts.find(q=>q.id===pid);if(p)p.commentCount=Math.max(0,p.commentCount-1);emit(gid+':c:'+pid);emit(gid+':posts')},
-    async sendMessage(gid,text){box(gid).messages.push({id:id(),authorId:'me',text:text,createdAt:Date.now()});emit(gid+':messages');touch(gid,`${me.name}: ${text}`)},
-    async addEvent(gid,o){box(gid).events.push(Object.assign({id:id(),createdBy:'me',rsvp:{me:'yes'},createdAt:Date.now()},o));emit(gid+':events');touch(gid,`${me.name} הוסיף/ה אירוע: ${o.title}`)},
-    async rsvp(gid,eid,v){const e=box(gid).events.find(x=>x.id===eid);if(e){e.rsvp.me=v;emit(gid+':events')}},
-    async deleteEvent(gid,eid){box(gid).events=box(gid).events.filter(x=>x.id!==eid);emit(gid+':events')},
-    async imageData(gid,iid){return box(gid).imageData[iid]||''},
-    async deleteImage(gid,img){const b=box(gid);b.images=b.images.filter(i=>i.id!==img.id);emit(gid+':images')}
-  };
-}
-
-async function LiveBackend(cfg){
-  const B='https://www.gstatic.com/firebasejs/11.0.2/';
-  const [A,Au,F]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]);
-  const fb=A.initializeApp(cfg),auth=Au.getAuth(fb);
-  let db;try{db=F.initializeFirestore(fb,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}catch(e){db=F.getFirestore(fb)}
-  const {doc,collection,query,where,orderBy,limit,onSnapshot,getDoc,setDoc,updateDoc,addDoc,serverTimestamp,arrayUnion,arrayRemove,increment,writeBatch}=F;
-  const ms=v=>v&&v.toMillis?v.toMillis():(typeof v==='number'?v:Date.now());
-  const read=d=>{const x=d.data({serverTimestamps:'estimate'});x.id=d.id;if('createdAt' in x)x.createdAt=ms(x.createdAt);if('lastAt' in x)x.lastAt=ms(x.lastAt);return x};
-  const ucache={};let me=null;
-  const touch=(gid,text)=>updateDoc(doc(db,'groups',gid),{lastMessage:text.slice(0,80),lastAt:serverTimestamp()}).catch(()=>{});
-  const order={posts:['createdAt','desc',60],messages:['createdAt','desc',200],events:['date','asc',100],images:['createdAt','desc',150]};
-  return {
-    mode:'live',
-    onAuth(cb){return Au.onAuthStateChanged(auth,async u=>{
-      if(!u){me=null;cb(null);return}
-      const ref=doc(db,'users',u.uid);let saved=null;try{const s=await getDoc(ref);if(s.exists())saved=s.data()}catch(e){}
-      const data={name:(saved&&saved.name)||u.displayName||'',photo:u.photoURL||''};
-      try{await setDoc(ref,data,{merge:true})}catch(e){}
-      me=Object.assign({id:u.uid},data);ucache[u.uid]=me;cb(Object.assign({},me))})},
-    async signIn(){const p=new Au.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
-      try{await Au.signInWithPopup(auth,p)}catch(e){if(e&&(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'))await Au.signInWithRedirect(auth,p);else throw e}},
-    signOut(){return Au.signOut(auth)},
-    async saveProfile(o){await setDoc(doc(db,'users',me.id),o,{merge:true});Object.assign(me,o);ucache[me.id]=me},
-    async users(ids){await Promise.all(ids.filter(i=>!ucache[i]).map(async i=>{try{const s=await getDoc(doc(db,'users',i));ucache[i]=s.exists()?Object.assign({id:i},s.data()):{id:i,name:''}}catch(e){ucache[i]={id:i,name:''}}}));const o={};ids.forEach(i=>o[i]=ucache[i]);return o},
-    watchGroups(cb,err){return onSnapshot(query(collection(db,'groups'),where('members','array-contains',me.id)),s=>cb(s.docs.map(read)),err)},
-    async createGroup(o){const ref=doc(collection(db,'groups')),code=newCode(),b=writeBatch(db);
-      b.set(ref,{name:o.name,emoji:o.emoji,color:o.color,ownerId:me.id,members:[me.id],inviteCode:code,createdAt:serverTimestamp(),lastAt:serverTimestamp(),lastMessage:''});
-      b.set(doc(db,'invites',code),{groupId:ref.id,groupName:o.name,emoji:o.emoji,color:o.color});await b.commit();return ref.id},
-    async findInvite(code){const s=await getDoc(doc(db,'invites',code));return s.exists()?s.data():null},
-    joinGroup(code,gid){return updateDoc(doc(db,'groups',gid),{members:arrayUnion(me.id),joinCode:code})},
-    async updateGroup(g,p){const b=writeBatch(db);b.update(doc(db,'groups',g.id),p);const ip={};if('name' in p)ip.groupName=p.name;if('emoji' in p)ip.emoji=p.emoji;if('color' in p)ip.color=p.color;if(Object.keys(ip).length)b.update(doc(db,'invites',g.inviteCode),ip);await b.commit()},
-    async newInviteCode(g){const code=newCode(),b=writeBatch(db);b.delete(doc(db,'invites',g.inviteCode));b.set(doc(db,'invites',code),{groupId:g.id,groupName:g.name,emoji:g.emoji,color:g.color});b.update(doc(db,'groups',g.id),{inviteCode:code});await b.commit();return code},
-    removeMember(gid,u){return updateDoc(doc(db,'groups',gid),{members:arrayRemove(u)})},
-    leaveGroup(gid){return updateDoc(doc(db,'groups',gid),{members:arrayRemove(me.id)})},
-    async deleteGroup(g){const b=writeBatch(db);b.delete(doc(db,'invites',g.inviteCode));b.delete(doc(db,'groups',g.id));await b.commit()},
-    watch(gid,kind,cb,err){const o=order[kind];return onSnapshot(query(collection(db,'groups',gid,kind),orderBy(o[0],o[1]),limit(o[2])),s=>cb(s.docs.map(read)),err)},
-    watchComments(gid,pid,cb,err){return onSnapshot(query(collection(db,'groups',gid,'posts',pid,'comments'),orderBy('createdAt','asc'),limit(300)),s=>cb(s.docs.map(read)),err)},
-    async addPhoto(gid,img){const ref=doc(collection(db,'groups',gid,'images')),b=writeBatch(db);
-      b.set(doc(db,'groups',gid,'imageData',ref.id),{by:me.id,data:img.full.data});
-      b.set(ref,{by:me.id,thumb:img.thumb.data,w:img.full.w,h:img.full.h,createdAt:serverTimestamp()});await b.commit();return ref.id},
-    async addPhotos(gid,imgs){for(const im of imgs)await this.addPhoto(gid,im);touch(gid,`${me.name} הוסיף/ה ${imgs.length===1?'תמונה':imgs.length+' תמונות'} לאלבום`)},
-    async addPost(gid,o){const imageId=o.image?await this.addPhoto(gid,o.image):'';
-      await addDoc(collection(db,'groups',gid,'posts'),{authorId:me.id,text:o.text||'',imageId:imageId,createdAt:serverTimestamp(),likes:[],commentCount:0});
-      touch(gid,o.text?`${me.name}: ${o.text}`:`${me.name} שיתף/ה תמונה`)},
-    toggleLike(gid,p){return updateDoc(doc(db,'groups',gid,'posts',p.id),{likes:p.likes.includes(me.id)?arrayRemove(me.id):arrayUnion(me.id)})},
-    async deletePost(gid,p){const b=writeBatch(db);b.delete(doc(db,'groups',gid,'posts',p.id));if(p.imageId){b.delete(doc(db,'groups',gid,'images',p.imageId));b.delete(doc(db,'groups',gid,'imageData',p.imageId))}await b.commit()},
-    async addComment(gid,pid,text){const b=writeBatch(db);b.set(doc(collection(db,'groups',gid,'posts',pid,'comments')),{authorId:me.id,text:text,createdAt:serverTimestamp()});b.update(doc(db,'groups',gid,'posts',pid),{commentCount:increment(1)});await b.commit()},
-    async deleteComment(gid,pid,cid){const b=writeBatch(db);b.delete(doc(db,'groups',gid,'posts',pid,'comments',cid));b.update(doc(db,'groups',gid,'posts',pid),{commentCount:increment(-1)});await b.commit()},
-    async sendMessage(gid,text){await addDoc(collection(db,'groups',gid,'messages'),{authorId:me.id,text:text,createdAt:serverTimestamp()});touch(gid,`${me.name}: ${text}`)},
-    async addEvent(gid,o){await addDoc(collection(db,'groups',gid,'events'),Object.assign({createdBy:me.id,rsvp:{[me.id]:'yes'},createdAt:serverTimestamp()},o));touch(gid,`${me.name} הוסיף/ה אירוע: ${o.title}`)},
-    rsvp(gid,eid,v){return updateDoc(doc(db,'groups',gid,'events',eid),{['rsvp.'+me.id]:v})},
-    deleteEvent(gid,eid){const b=writeBatch(db);b.delete(doc(db,'groups',gid,'events',eid));return b.commit()},
-    async imageData(gid,iid){const s=await getDoc(doc(db,'groups',gid,'imageData',iid));return s.exists()?s.data().data:''},
-    async deleteImage(gid,img){const b=writeBatch(db);b.delete(doc(db,'groups',gid,'images',img.id));b.delete(doc(db,'groups',gid,'imageData',img.id));await b.commit()}
-  };
-}
-
-/* ======================================================================
-   App
-   ====================================================================== */
-let be=null;
-const S={booting:true,user:null,groups:[],screen:'groups',gid:null,tab:'feed',data:{posts:[],messages:[],events:[],images:[]},members:{},
-  drafts:{},img:null,busy:false,comments:null,viewer:null,anim:'',joinCode:params.get('join')||''};
-const full={};let unsubGroups=null,unsubGroup=[],unsubComments=null,loadedFull=new Set(),seenMsgs=LS.get('nest.seen')||{};
-const group=()=>S.groups.find(g=>g.id===S.gid);
-const isOwner=g=>g&&S.user&&g.ownerId===S.user.id;
-const scrollY=()=>isFrame()?screenEl.scrollTop:window.scrollY;
-const isFrame=()=>getComputedStyle(screenEl).overflowY==='auto';
-const scrollTo=y=>{if(isFrame())screenEl.scrollTop=y;else window.scrollTo(0,y)};
-const scrollMax=()=>isFrame()?screenEl.scrollHeight-screenEl.clientHeight:document.documentElement.scrollHeight-innerHeight;
-const typing=()=>{const a=document.activeElement;return !!a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)};
-
-/* ---------- HUD & sheets ---------- */
-let hudT;
-function hud(msg,warn){const h=$('#hud');h.className='hud'+(warn?' warn':'');h.innerHTML=`<span class="hud-ic">${icon(warn?'warn':'check',18,2.2)}</span><span>${esc(msg)}</span>`;requestAnimationFrame(()=>h.classList.add('show'));clearTimeout(hudT);hudT=setTimeout(()=>h.classList.remove('show'),2400)}
-function fail(e){console.error(e);const c=e&&e.code||'';hud(c.includes('permission')?'אין הרשאה לפעולה הזו':c.includes('unavailable')||!navigator.onLine?'אין חיבור. נסו שוב בעוד רגע':'משהו השתבש. נסו שוב',true)}
-function confirmSheet(o){
-  return new Promise(res=>{
-    sheetEl.innerHTML=`<div class="scrim"></div><div class="asheet" role="dialog" aria-modal="true"><div class="ag glass"><div class="am"><b>${esc(o.title)}</b>${esc(o.msg||'')}</div>${o.actions.map((a,i)=>`<button type="button" class="aa${a.destructive?' destructive':''}" data-r="${i}">${esc(a.label)}</button>`).join('')}</div><button type="button" class="aa cancel glass" data-r="-1">ביטול</button></div>`;
-    const sc=sheetEl.querySelector('.scrim'),as=sheetEl.querySelector('.asheet');
-    requestAnimationFrame(()=>{sc.classList.add('show');as.classList.add('show')});
-    const close=v=>{sc.classList.remove('show');as.classList.remove('show');setTimeout(()=>{if(sheetEl.contains(as))sheetEl.innerHTML=''},320);res(v)};
-    sc.onclick=()=>close(-1);as.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>close(+b.dataset.r));
-    as.querySelector('.cancel').focus({preventScroll:true});
-  });
-}
-// Form sheet: Cancel | title | action, body scrolls
-let closeForm=null;
-function formSheet(o){
-  sheetEl.innerHTML=`<div class="scrim"></div><div class="fsheet${o.tall?' tall':''}" role="dialog" aria-modal="true" aria-label="${esc(o.title)}"><div class="grab"></div><div class="fh"><button type="button" class="nb-btn" data-f="cancel" style="justify-self:start">ביטול</button><b>${esc(o.title)}</b>${o.action?`<button type="button" class="nb-btn" data-f="ok" style="font-weight:600">${esc(o.action)}</button>`:'<span></span>'}</div><div class="fb">${o.body}</div>${o.footer||''}</div>`;
-  const sc=sheetEl.querySelector('.scrim'),fs=sheetEl.querySelector('.fsheet');
-  requestAnimationFrame(()=>{sc.classList.add('show');fs.classList.add('show')});
-  const close=()=>{closeForm=null;sc.classList.remove('show');fs.classList.remove('show');setTimeout(()=>{if(sheetEl.contains(fs))sheetEl.innerHTML=''},340);o.onClose&&o.onClose()};
-  closeForm=close;sc.onclick=close;fs.querySelector('[data-f=cancel]').onclick=close;
-  const ok=fs.querySelector('[data-f=ok]');if(ok)ok.onclick=async()=>{ok.disabled=true;try{if(await o.onOk(fs)!==false)close()}catch(e){fail(e)}finally{ok.disabled=false}};
-  const f=fs.querySelector('[autofocus]');if(f)setTimeout(()=>f.focus({preventScroll:true}),350);
-  return fs;
-}
-async function copyText(t){try{await navigator.clipboard.writeText(t);haptic();hud('הועתק')}catch(e){hud('לא הצלחנו להעתיק. סמנו והעתיקו ידנית',true)}}
-
-/* ---------- navigation ---------- */
-function go(screen,gid,push){
-  const from=S.screen;
-  S.anim=screen==='group'&&from!=='group'?'push':from==='group'&&screen==='groups'?'pop':from!==screen?'fade':'';
-  if(screen!=='group')closeGroup();
-  S.screen=screen;
-  if(screen==='group'&&gid&&gid!==S.gid)openGroup(gid);
-  if(push!==false){try{history.pushState({screen:screen,gid:S.gid},'')}catch(e){}}
-  render(true);
-}
-window.addEventListener('popstate',e=>{const st=e.state||{screen:'groups'};if(closeForm){closeForm();return}if(S.viewer){S.viewer=null;renderViewer();return}go(st.screen||'groups',st.gid,false)});
-function onScroll(){const nb=$('.navbar');if(nb)nb.classList.toggle('scrolled',scrollY()>(nb.classList.contains('inline')?2:44))}
-screenEl.addEventListener('scroll',onScroll,{passive:true});window.addEventListener('scroll',onScroll,{passive:true});
-
-/* ---------- data subscriptions ---------- */
-function watchGroups(){
-  if(unsubGroups)unsubGroups();
-  unsubGroups=be.watchGroups(async list=>{
-    S.groups=list.sort((a,b)=>(b.lastAt||0)-(a.lastAt||0));
-    const g=group();
-    if(S.screen==='group'&&!g){hud('כבר אין לך גישה לקבוצה הזו',true);go('groups')}
-    else{if(g)await loadMembers(g);softRender()}
-  },fail);
-}
-async function loadMembers(g){const ids=g.members.concat(g.ownerId);const m=await be.users([...new Set(ids)]);S.members=Object.assign(S.members,m)}
-function openGroup(gid){
-  closeGroup();S.gid=gid;S.tab='feed';S.data={posts:[],messages:[],events:[],images:[]};
-  ['posts','messages','events','images'].forEach(k=>unsubGroup.push(be.watch(gid,k,async list=>{
-    S.data[k]=list;
-    if(k==='messages'||k==='posts'){const ids=[...new Set(list.map(x=>x.authorId))].filter(i=>!S.members[i]);if(ids.length)Object.assign(S.members,await be.users(ids))}
-    if(k==='messages'&&S.tab==='chat')markSeen();
-    softRender(k==='messages');
-  },fail)));
-  const g=group();if(g)loadMembers(g).then(()=>softRender());
-}
-function closeGroup(){unsubGroup.forEach(u=>{try{u()}catch(e){}});unsubGroup=[];S.gid=null;S.data={posts:[],messages:[],events:[],images:[]}}
-function markSeen(){const m=S.data.messages[0];if(m&&S.gid){seenMsgs[S.gid]=m.createdAt;LS.set('nest.seen',seenMsgs)}}
-const unread=()=>{const last=seenMsgs[S.gid]||0;return S.data.messages.filter(m=>m.createdAt>last&&m.authorId!==(S.user&&S.user.id)).length};
-
-/* ---------- render ---------- */
-let pendingRender=false;
-// Data changes re-render without stealing focus from what the person is typing
-function softRender(chatChanged){if(S.booting)return;render(false,chatChanged)}
-function render(navigated,chatChanged){
-  if(S.viewer){renderViewer()}
-  const a=document.activeElement,fid=a&&a.id,sel=a&&typeof a.selectionStart==='number'?[a.selectionStart,a.selectionEnd]:null;
-  const y=scrollY(),nearBottom=scrollMax()-y<120;
-  const g=group();
-  root.style.setProperty('--accent',`var(--g-${(S.screen==='group'&&g&&g.color)||'orange'})`);
-  let html,bare=false,tabs='';
-  if(S.booting){bare=true;html=`<div class="loading"><div class="spinner" aria-label="טוען"></div></div>`}
-  else if(!S.user){bare=true;html=viewLogin()}
-  else if(S.screen==='profile')html=viewProfile();
-  else if(S.screen==='group'&&g){html=viewGroup(g);tabs=viewTabs()}
-  else html=viewGroups();
-  app.className=(bare?'bare ':'')+(S.screen==='group'&&S.tab==='chat'?'chat-pad ':'')+(navigated&&S.anim?'anim-'+S.anim:'');
-  S.anim='';
-  app.innerHTML=html;navEl.innerHTML=tabs;
-  document.querySelectorAll('[data-draft]').forEach(el=>{el.value=S.drafts[el.dataset.draft]||'';grow(el)});
-  updateSend();
-  if(fid&&!navigated){const n=document.getElementById(fid);if(n){n.focus({preventScroll:true});if(sel&&n.setSelectionRange)try{n.setSelectionRange(sel[0],sel[1])}catch(e){}}}
-  if(navigated){scrollTo(0);if(S.screen==='group'&&S.tab==='chat')requestAnimationFrame(()=>scrollTo(scrollMax()))}
-  else if(S.screen==='group'&&S.tab==='chat'&&(nearBottom||chatChanged&&isMineLatest()))requestAnimationFrame(()=>scrollTo(scrollMax()));
-  else scrollTo(y);
-  onScroll();loadFullImages();
-}
-const isMineLatest=()=>{const m=S.data.messages[0];return m&&S.user&&m.authorId===S.user.id};
-function grow(el){if(el.tagName!=='TEXTAREA')return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,parseInt(getComputedStyle(el).maxHeight)||200)+'px'}
-function updateSend(){const b=$('#chat-send');if(b)b.disabled=!(S.drafts.chat||'').trim();const p=$('#post-btn');if(p)p.disabled=S.busy||!((S.drafts.post||'').trim()||S.img)}
-
-function bar(o){
-  return `<header class="navbar${o.inline?' inline':''}"><div class="nb-in">
-    <div class="nb-lead">${o.back?`<button class="nb-btn" data-a="back" aria-label="חזרה ל${esc(o.back)}">${icon('back',20)}<span>${esc(o.back)}</span></button>`:''}</div>
-    <div class="nb-title">${o.titleHtml||esc(o.title)}</div>
-    <div class="nb-trail">${o.trail||''}</div></div></header>
-  ${o.inline?'':`<div class="large"><div>${o.eyebrow?`<div class="eyebrow">${o.eyebrow}</div>`:''}<h1>${esc(o.title)}</h1></div>${o.side||''}</div>`}`;
-}
-
-function viewLogin(){
-  const live=be.mode==='live';
-  return `<div class="onb">
-    <div class="app-icon">${icon('house',56,1.7)}</div>
-    <h1 dir="ltr">Nest</h1>
-    <p class="lead">הרשת הפרטית של המשפחה שלך. רק מי שהזמנתם רואה.</p>
-  </div>
-  <div class="features">
-    <div class="feature"><span class="fi">${icon('feed',30)}</span><div><b>פיד משפחתי</b><span>תמונות ועדכונים, עם לייקים ותגובות.</span></div></div>
-    <div class="feature"><span class="fi">${icon('chat',30)}</span><div><b>צ׳אט קבוצתי</b><span>הודעות שמגיעות לכולם בזמן אמת.</span></div></div>
-    <div class="feature"><span class="fi">${icon('cal',30)}</span><div><b>אירועים ואלבום</b><span>ארוחות שישי, ימי הולדת, וכל התמונות במקום אחד.</span></div></div>
-    <div class="feature"><span class="fi">${icon('lock',30)}</span><div><b>קבוצות פרטיות</b><span>פותחים קבוצה ומצרפים את המשפחה עם קוד.</span></div></div>
-  </div>
-  ${live?`<div class="btn-row"><button class="btn filled block" data-a="google">המשך עם Google</button></div>
-    <p class="section-f" style="text-align:center">נכנסים עם חשבון Google. אנחנו שומרים רק שם ותמונת פרופיל.</p>`
-  :`<form id="local-login"><div class="section-h">איך קוראים לך?</div><div class="list"><div class="field"><input id="local-name" autocomplete="given-name" placeholder="השם שלך" aria-label="השם שלך" autofocus></div></div>
-    <div class="btn-row"><button class="btn filled block">כניסה</button></div>
-    <p class="section-f" style="text-align:center">זו תצוגה מקדימה: הנתונים נשמרים רק בדף הזה. באתר נכנסים עם Google והכול נשמר לכל המשפחה.</p></form>`}`;
-}
-
-function viewGroups(){
-  const u=S.user,list=S.groups;
-  return bar({title:'הקבוצות שלי',eyebrow:be.mode==='local'?'<span class="pill">תצוגה מקדימה</span>':'',trail:`<button class="nb-btn" data-a="profile" aria-label="פרופיל">${avatar(u,30)}</button>`})+
-  (list.length?`<div class="list av" style="--inset:80px">${list.map(g=>`<button class="row" data-a="open" data-v="${esc(g.id)}" style="padding:10px 16px">${gtile(g)}<span class="body"><span class="t" style="font-weight:600">${esc(g.name)}${g.ownerId===u.id?'<span class="badge">בעלים</span>':''}</span><span class="sub" dir="auto">${esc(g.lastMessage||`${g.members.length} חברים`)}</span></span><span class="val">${g.lastAt?ago(g.lastAt):''}</span></button>`).join('')}</div>`
-  :`<div class="empty">${icon('house',56,1.4)}<b>עוד אין קבוצות</b><span>פתחו קבוצה למשפחה, או הצטרפו לקבוצה קיימת עם קוד הזמנה.</span></div>`)+
-  `<div class="btn-row"><button class="btn filled" data-a="new-group">${icon('plus',18,2.4)} קבוצה חדשה</button><button class="btn tinted" data-a="join">${icon('key',18)} הצטרפות עם קוד</button></div>`;
-}
-
-function viewTabs(){
-  const n=unread(),t=[['feed','פיד'],['chat','צ׳אט'],['events','אירועים'],['album','אלבום'],['members','חברים']],ic={feed:'feed',chat:'chat',events:'cal',album:'photo',members:'people'};
-  return `<nav class="tabbar" aria-label="קטעי הקבוצה"><div class="tb-in glass">${t.map(([k,l])=>`<button class="tab${S.tab===k?' on':''}" data-a="tab" data-v="${k}"${S.tab===k?' aria-current="page"':''}>${icon(S.tab===k?ic[k]+'F':ic[k],24)}<span>${l}</span>${k==='chat'&&n&&S.tab!=='chat'?`<span class="dot">${n>9?'9+':n}</span>`:''}</button>`).join('')}</div></nav>`;
-}
-
-function viewGroup(g){
-  const trail={events:`<button class="nb-btn" data-a="new-event" aria-label="אירוע חדש">${icon('plus',24,2.2)}</button>`,album:`<button class="nb-btn" data-a="pick" data-v="album" aria-label="הוספת תמונות">${icon('plus',24,2.2)}</button>`}[S.tab]||'';
-  const head=bar({inline:true,back:'קבוצות',titleHtml:`<span>${esc(g.emoji)}</span><span style="overflow:hidden;text-overflow:ellipsis">${esc(g.name)}</span>`,trail:trail});
-  return head+({feed:viewFeed,chat:viewChat,events:viewEvents,album:viewAlbum,members:viewMembers}[S.tab])(g);
-}
-
-function imgFor(iid){const im=S.data.images.find(i=>i.id===iid);return full[iid]||(im&&im.thumb)||''}
-function viewFeed(g){
-  const u=S.user,posts=S.data.posts;
-  return `<form id="post-form" class="composer"><div class="top">${avatar(u,38)}<textarea id="post-text" data-draft="post" rows="1" placeholder="מה חדש, ${esc(first(u.name))}?" aria-label="פוסט חדש" dir="auto"></textarea></div>
-    ${S.img?`<div class="prev"><img src="${S.img.thumb.data}" alt="התמונה שנבחרה"><button type="button" data-a="clear-img" aria-label="הסרת התמונה">${icon('xmark',16)}</button></div>`:''}
-    <div class="bar"><button type="button" class="btn tinted sm" data-a="pick" data-v="post">${icon('camera',18)} תמונה</button><button id="post-btn" class="btn filled sm"${S.busy?' disabled':''}>${S.busy?'מפרסם…':'פרסום'}</button></div></form>
-  <div class="posts">${posts.map(p=>{const a=S.members[p.authorId]||{id:p.authorId},liked=p.likes.includes(u.id),src=p.imageId?imgFor(p.imageId):'',im=S.data.images.find(i=>i.id===p.imageId);
-    const likers=p.likes.slice(0,3).map(id=>first(nameOf(S.members[id]||{}))).filter(Boolean);
-    return `<article class="post"><header>${avatar(a,40)}<div class="who"><b>${esc(nameOf(a))}</b><span>${ago(p.createdAt)}</span></div>${p.authorId===u.id||isOwner(g)?`<button class="icon-btn muted" data-a="post-menu" data-v="${esc(p.id)}" aria-label="אפשרויות">${icon('more',22)}</button>`:''}</header>
-      ${p.text?`<p class="post-text" dir="auto">${esc(p.text)}</p>`:''}
-      ${p.imageId&&(src||im)?`<button class="post-img" data-a="view-img" data-v="${esc(p.imageId)}" style="aspect-ratio:${im?im.w+'/'+im.h:'4/3'}"><img data-iid="${esc(p.imageId)}" src="${src}" alt="תמונה מ${esc(nameOf(a))}"></button>`:''}
-      <footer><button class="act${liked?' on':''}" data-a="like" data-v="${esc(p.id)}" aria-pressed="${liked}" aria-label="לייק">${icon('heart',22)} ${p.likes.length||''}</button><button class="act" data-a="comments" data-v="${esc(p.id)}" aria-label="תגובות">${icon('comment',22)} ${p.commentCount||''}</button></footer>
-      ${likers.length?`<div class="likers">${esc(likers.join(', '))}${p.likes.length>3?` ועוד ${p.likes.length-3}`:''} אהבו</div>`:''}</article>`}).join('')||`<div class="empty">${icon('feed',48,1.4)}<b>הפיד ריק</b><span>שתפו את הרגע הראשון של ${esc(g.name)}.</span></div>`}</div>`;
-}
-
-function viewChat(g){
-  const u=S.user,msgs=S.data.messages.slice().reverse();let html='',lastDay='',lastA='';
-  msgs.forEach(m=>{
-    const d=dayKey(m.createdAt);if(d!==lastDay){html+=`<div class="day-sep"><span>${esc(dayLabel(m.createdAt))}</span></div>`;lastDay=d;lastA=''}
-    const mine=m.authorId===u.id,a=S.members[m.authorId]||{id:m.authorId},firstOf=m.authorId!==lastA;lastA=m.authorId;
-    html+=`<div class="msg${mine?' mine':''}${firstOf?' first':''}">${mine?'':`<span class="msg-av">${firstOf?avatar(a,28):''}</span>`}<div class="bubble">${!mine&&firstOf?`<div class="msg-name" style="color:${userColor(m.authorId)}">${esc(nameOf(a))}</div>`:''}<span dir="auto">${esc(m.text)}</span><span class="msg-time">${hhmm(m.createdAt)}</span></div></div>`;
-  });
-  return `<div class="chat" id="chat">${html||`<div class="empty">${icon('chat',48,1.4)}<b>עוד אין הודעות</b><span>כתבו משהו ל${esc(g.name)}.</span></div>`}</div>
-  <form id="chat-form" class="chat-bar glass"><textarea id="chat-in" data-draft="chat" rows="1" placeholder="הודעה" aria-label="הודעה" dir="auto" enterkeyhint="send"></textarea><button id="chat-send" class="send" aria-label="שליחה" disabled>${icon('send',18)}</button></form>`;
-}
-
-function viewEvents(g){
-  const u=S.user,evs=S.data.events,up=evs.filter(e=>daysTo(e.date)>=0),past=evs.filter(e=>daysTo(e.date)<0).reverse();
-  const card=e=>{const p=e.date.split('-').map(Number),dt=new Date(p[0],p[1]-1,p[2]),n=daysTo(e.date),r=e.rsvp||{},mine=r[u.id]||'';
-    const cnt=v=>Object.values(r).filter(x=>x===v).length;
-    return `<div class="ev${n<0?' past':''}"><div class="ev-date"><span class="m">${MONTHS[dt.getMonth()]}</span><span class="d">${dt.getDate()}</span></div><div class="body">
-      ${n>=0?`<span class="when">${n===0?'היום':n===1?'מחר':`בעוד ${n} ימים`}</span>`:''}<b dir="auto">${esc(e.title)}</b>
-      <span class="sub">יום ${DAYS[dt.getDay()]}${e.time?` · ${esc(e.time)}`:''}${e.place?` · ${esc(e.place)}`:''}</span>
-      ${n>=0?`<div class="seg" role="group" aria-label="אישור הגעה">${[['yes','מגיע/ה'],['maybe','אולי'],['no','לא']].map(([v,l])=>`<button class="${mine===v?'on':''}" data-a="rsvp" data-v="${esc(e.id)}" data-r="${v}" aria-pressed="${mine===v}">${l}</button>`).join('')}</div>`:''}
-      <span class="sub">${cnt('yes')} מגיעים${cnt('maybe')?` · ${cnt('maybe')} אולי`:''}${cnt('no')?` · ${cnt('no')} לא`:''}</span></div>
-      ${e.createdBy===u.id||isOwner(g)?`<button class="icon-btn muted" data-a="event-menu" data-v="${esc(e.id)}" aria-label="אפשרויות">${icon('more',22)}</button>`:''}</div>`};
-  return (up.length?`<div class="events">${up.map(card).join('')}</div>`:`<div class="empty">${icon('cal',48,1.4)}<b>אין אירועים קרובים</b><span>הוסיפו ארוחת שישי, יום הולדת או מפגש.</span><button class="btn filled sm" data-a="new-event">אירוע חדש</button></div>`)+
-    (past.length?`<div class="section-h">עברו</div><div class="events">${past.slice(0,10).map(card).join('')}</div>`:'');
-}
-
-function viewAlbum(g){
-  const imgs=S.data.images;
-  return imgs.length?`<div class="section-h" style="padding-top:4px">${imgs.length} תמונות</div><div class="grid">${imgs.map((im,i)=>`<button data-a="view-img" data-v="${esc(im.id)}" aria-label="תמונה ${i+1}"><img src="${im.thumb}" alt="" loading="lazy"></button>`).join('')}</div>`
-    :`<div class="empty">${icon('photo',48,1.4)}<b>האלבום ריק</b><span>כל תמונה שמשתפים בפיד מגיעה גם לכאן.</span><button class="btn filled sm" data-a="pick" data-v="album">הוספת תמונות</button></div>`;
-}
-
-function inviteLink(g){return location.origin+location.pathname+'?join='+g.inviteCode}
-function viewMembers(g){
-  const u=S.user,owner=isOwner(g),ids=g.members.slice().sort((a,b)=>(b===g.ownerId)-(a===g.ownerId));
-  return `<div class="invite">${gtile(g,'lg')}<b style="font-size:22px">${esc(g.name)}</b><span class="eyebrow">קוד הזמנה</span><span class="code">${esc(g.inviteCode)}</span>
-    <span style="color:var(--label2);font-size:14px;max-width:32ch">שלחו את הקישור לבני המשפחה. הם נכנסים עם Google ומצטרפים.</span>
-    <div class="btn-row" style="width:100%"><button class="btn filled" data-a="share-invite">${icon('share',18)} שליחת הזמנה</button><button class="btn tinted" data-a="copy-invite">${icon('link',18)} העתקה</button></div></div>
-  <div class="section-h">${g.members.length} חברים</div>
-  <div class="list av">${ids.map(id=>{const m=S.members[id]||{id:id};return `<div class="row">${avatar(m,40)}<span class="body"><span class="t">${esc(nameOf(m))}${id===u.id?' <span style="color:var(--label2)">(את/ה)</span>':''}</span>${id===g.ownerId?'<span class="sub">בעלים</span>':''}</span>${owner&&id!==u.id?`<button class="icon-btn muted" data-a="member-menu" data-v="${esc(id)}" aria-label="אפשרויות ל${esc(nameOf(m))}">${icon('more',22)}</button>`:''}</div>`}).join('')}</div>
-  ${owner?`<div class="section-h">ניהול הקבוצה</div><div class="list"><button class="row blue" data-a="edit-group">עריכת שם, אייקון וצבע</button><button class="row blue" data-a="new-code">החלפת קוד ההזמנה</button><button class="row red" data-a="delete-group">מחיקת הקבוצה</button></div>
-    <p class="section-f">החלפת הקוד מבטלת את הקישור הישן. מי שכבר בקבוצה נשאר.</p>`
-  :`<div class="section-h"></div><div class="list"><button class="row red" data-a="leave-group">יציאה מהקבוצה</button></div>`}`;
-}
-
-function viewProfile(){
-  const u=S.user;
-  return bar({title:'פרופיל',back:'קבוצות'})+
-  `<div class="list"><div class="row" style="padding:16px">${avatar(u,64)}<span class="body"><span class="t" style="font-size:22px;font-weight:600">${esc(nameOf(u))}</span><span class="sub">${be.mode==='live'?'מחובר/ת עם Google':'תצוגה מקדימה'}</span></span></div></div>
-  <div class="section-h">השם שמוצג למשפחה</div>
-  <form id="name-form" class="list"><div class="field"><input id="pf-name" value="${esc(u.name)}" aria-label="השם שלך" maxlength="40"><button class="btn tinted sm">שמירה</button></div></form>
-  <div class="section-h"></div><div class="list"><button class="row red" data-a="sign-out">התנתקות</button></div>
-  <p class="section-f" style="text-align:center;padding-top:20px">Nest · הרשת של המשפחה</p>`;
-}
-
-/* ---------- photos: full size loads after the thumbnail ---------- */
-function loadFullImages(){
-  document.querySelectorAll('img[data-iid]').forEach(async el=>{
-    const iid=el.dataset.iid;if(full[iid]){el.src=full[iid];return}
-    if(loadedFull.has(iid)||!S.gid)return;loadedFull.add(iid);
-    try{const d=await be.imageData(S.gid,iid);if(d){full[iid]=d;document.querySelectorAll(`img[data-iid="${CSS.escape(iid)}"]`).forEach(x=>x.src=d)}}catch(e){loadedFull.delete(iid)}
-  });
-}
-function renderViewer(){
-  const v=S.viewer;if(!v){const o=$('.viewer');if(o)o.remove();return}
-  const list=S.data.images,i=list.findIndex(x=>x.id===v.id);if(i<0){S.viewer=null;renderViewer();return}
-  const im=list[i],by=S.members[im.by]||{id:im.by},g=group(),canDel=S.user&&(im.by===S.user.id||isOwner(g));
-  let o=$('.viewer');if(!o){o=document.createElement('div');o.className='viewer';o.setAttribute('role','dialog');o.setAttribute('aria-label','תמונה');document.querySelector('.phone').appendChild(o)}
-  o.innerHTML=`<div class="vt"><button class="nb-btn" data-a="viewer-close" style="color:#fff">סגירה</button><span style="font-size:15px;font-weight:600">${i+1} מתוך ${list.length}</span>${canDel?`<button class="icon-btn" data-a="viewer-del" aria-label="מחיקת התמונה" style="color:#fff">${icon('trash',22)}</button>`:'<span style="width:44px"></span>'}</div>
-    <div class="vimg"><img data-iid="${esc(im.id)}" src="${full[im.id]||im.thumb}" alt="תמונה מ${esc(nameOf(by))}">
-      ${i>0?`<button class="vnav" style="right:10px" data-a="viewer-step" data-v="-1" aria-label="הקודמת">${icon('prev',22)}</button>`:''}
-      ${i<list.length-1?`<button class="vnav" style="left:10px" data-a="viewer-step" data-v="1" aria-label="הבאה">${icon('next',22)}</button>`:''}</div>
-    <div class="vinfo">${esc(nameOf(by))} · ${esc(dayLabel(im.createdAt))}</div>`;
-  loadFullImages();
-}
-
-/* ---------- comments sheet ---------- */
-function openComments(pid){
-  S.comments={pid:pid,list:[]};
-  const fs=formSheet({title:'תגובות',tall:true,body:'<div class="cmts" id="cmts"><div class="loading" style="min-height:120px"><div class="spinner"></div></div></div>',
-    footer:`<form id="cmt-form" class="cmt-bar"><textarea id="cmt-in" rows="1" placeholder="הוספת תגובה" aria-label="תגובה" dir="auto"></textarea><button class="send" aria-label="שליחת תגובה">${icon('send',18)}</button></form>`,
-    onClose(){if(unsubComments)unsubComments();unsubComments=null;S.comments=null}});
-  const gid=S.gid;
-  unsubComments=be.watchComments(gid,pid,async list=>{
-    if(!S.comments)return;S.comments.list=list;
-    const ids=[...new Set(list.map(c=>c.authorId))].filter(i=>!S.members[i]);if(ids.length)Object.assign(S.members,await be.users(ids));
-    const box=fs.querySelector('#cmts'),g=group();if(!box)return;
-    box.innerHTML=list.map(c=>{const a=S.members[c.authorId]||{id:c.authorId};return `<div class="cmt">${avatar(a,32)}<div style="flex:1;min-width:0"><div class="cb"><b>${esc(nameOf(a))}</b><p dir="auto">${esc(c.text)}</p></div><div class="ct">${ago(c.createdAt)}${c.authorId===S.user.id||isOwner(g)?` · <button style="color:var(--red);font-size:12px" data-a="del-comment" data-v="${esc(c.id)}">מחיקה</button>`:''}</div></div></div>`}).join('')||'<div class="empty" style="padding:30px 0"><b>עוד אין תגובות</b><span>תהיו הראשונים להגיב.</span></div>';
-    const fb=fs.querySelector('.fb');fb.scrollTop=fb.scrollHeight;
-  },fail);
-  setTimeout(()=>{const t=fs.querySelector('#cmt-in');if(t)t.focus({preventScroll:true})},380);
-}
-
-/* ---------- forms in sheets ---------- */
-function groupForm(g){
-  let color=g?g.color:'orange',emoji=g?g.emoji:'🏠';
-  const fs=formSheet({title:g?'עריכת קבוצה':'קבוצה חדשה',action:g?'שמירה':'יצירה',
-    body:`<div style="display:flex;justify-content:center;padding:10px 0 4px" id="gf-prev"></div>
-      <div class="section-h">שם</div><div class="list"><div class="field"><input id="gf-name" maxlength="40" placeholder="למשל: משפחת לוי" value="${esc(g?g.name:'')}" aria-label="שם הקבוצה" autofocus></div></div>
-      <div class="section-h">אייקון</div><div class="emojis">${EMOJIS.map(e=>`<button type="button" data-e="${e}" aria-pressed="${e===emoji}" aria-label="אייקון ${e}">${e}</button>`).join('')}</div>
-      <div class="section-h">צבע</div><div class="colors">${COLORS.map(c=>`<button type="button" data-c="${c}" style="--c:var(--g-${c})" aria-pressed="${c===color}" aria-label="צבע ${c}"></button>`).join('')}</div>`,
-    async onOk(f){const name=f.querySelector('#gf-name').value.trim();if(!name){hud('תנו שם לקבוצה',true);f.querySelector('#gf-name').focus();return false}
-      if(g){await be.updateGroup(g,{name:name,emoji:emoji,color:color});hud('נשמר')}
-      else{const gid=await be.createGroup({name:name,emoji:emoji,color:color});haptic(15);hud('הקבוצה נוצרה');setTimeout(()=>go('group',gid),300)}}});
-  const prev=()=>{fs.querySelector('#gf-prev').innerHTML=gtile({emoji:emoji,color:color},'lg')};prev();
-  fs.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{emoji=b.dataset.e;fs.querySelectorAll('[data-e]').forEach(x=>x.setAttribute('aria-pressed',x===b));prev()});
-  fs.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{color=b.dataset.c;fs.querySelectorAll('[data-c]').forEach(x=>x.setAttribute('aria-pressed',x===b));prev()});
-}
-function joinForm(code){
-  let found=null;
-  const fs=formSheet({title:'הצטרפות לקבוצה',action:'הצטרפות',
-    body:`<div class="section-h">קוד הזמנה</div><div class="list"><div class="field"><input id="jf-code" maxlength="6" placeholder="6 תווים" value="${esc(code||'')}" aria-label="קוד הזמנה" autocapitalize="characters" autocomplete="off" spellcheck="false" dir="ltr" style="text-align:left;letter-spacing:.15em;font-weight:600" autofocus></div></div>
-      <p class="section-f">את הקוד מקבלים ממי שפתח את הקבוצה, במסך "חברים".</p><div id="jf-res" style="margin-top:16px"></div>`,
-    async onOk(f){
-      if(!found){await look();if(!found)return false}
-      if(S.groups.some(g=>g.id===found.groupId)){hud('את/ה כבר בקבוצה הזו');setTimeout(()=>go('group',found.groupId),300);return}
-      await be.joinGroup(found.code,found.groupId);haptic(15);hud(`הצטרפת ל${found.groupName}`);
-      if(params.has('join')){params.delete('join');history.replaceState(null,'',location.pathname+(params.toString()?'?'+params:''))}
-      setTimeout(()=>go('group',found.groupId),500)}});
-  const inp=fs.querySelector('#jf-code'),res=fs.querySelector('#jf-res');
-  async function look(){
-    const c=inp.value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');found=null;
-    if(c.length!==6){res.innerHTML='';if(c.length)hud('הקוד צריך להיות 6 תווים',true);return}
-    res.innerHTML='<div class="loading" style="min-height:60px"><div class="spinner"></div></div>';
-    try{const inv=await be.findInvite(c);
-      if(!inv){res.innerHTML='<p class="err" style="text-align:center">לא מצאנו קבוצה עם הקוד הזה. בדקו אותו ונסו שוב.</p>';return}
-      found=Object.assign({code:c},inv);
-      res.innerHTML=`<div class="invite">${gtile({emoji:inv.emoji,color:inv.color},'lg')}<b style="font-size:20px">${esc(inv.groupName)}</b><span style="color:var(--label2);font-size:14px">לחצו "הצטרפות" למעלה כדי להיכנס.</span></div>`}
-    catch(e){res.innerHTML='';fail(e)}}
-  inp.addEventListener('input',()=>{inp.value=inp.value.toUpperCase();if(inp.value.replace(/[^A-Z0-9]/g,'').length===6)look();else{found=null;res.innerHTML=''}});
-  if(code&&code.length===6)look();
-}
-function eventForm(){
-  const d=new Date();d.setDate(d.getDate()+(5-d.getDay()+7)%7||7);
-  formSheet({title:'אירוע חדש',action:'הוספה',
-    body:`<div class="section-h">פרטים</div><div class="list">
-      <div class="field"><label for="ef-t">מה</label><input id="ef-t" maxlength="60" placeholder="ארוחת שישי" autofocus></div>
-      <div class="field"><label for="ef-d">תאריך</label><input id="ef-d" type="date" value="${iso(d)}"></div>
-      <div class="field"><label for="ef-h">שעה</label><input id="ef-h" type="time" value="19:30"></div>
-      <div class="field"><label for="ef-p">איפה</label><input id="ef-p" maxlength="80" placeholder="אצל סבתא"></div></div>
-      <p class="section-f">כל חברי הקבוצה יראו את האירוע ויוכלו לאשר הגעה.</p>`,
-    async onOk(f){const t=f.querySelector('#ef-t').value.trim(),date=f.querySelector('#ef-d').value;
-      if(!t){hud('כתבו מה האירוע',true);return false}if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){hud('בחרו תאריך',true);return false}
-      await be.addEvent(S.gid,{title:t,date:date,time:f.querySelector('#ef-h').value||'',place:f.querySelector('#ef-p').value.trim()});haptic(12);hud('האירוע נוסף')}});
-}
-
-/* ---------- actions ---------- */
-const A={
-  google:async b=>{b.disabled=true;try{await be.signIn()}catch(e){if(!(e&&e.code==='auth/popup-closed-by-user'||e&&e.code==='auth/cancelled-popup-request'))fail(e)}finally{b.disabled=false}},
-  back:()=>{if(history.state&&history.state.screen&&history.state.screen!=='groups')history.back();else go('groups')},
-  profile:()=>go('profile'),
-  open:b=>go('group',b.dataset.v),
-  tab:b=>{if(S.tab===b.dataset.v){scrollTo(S.tab==='chat'?scrollMax():0);return}S.tab=b.dataset.v;if(S.tab==='chat')markSeen();S.anim='fade';render(true)},
-  'new-group':()=>groupForm(null),
-  join:()=>joinForm(''),
-  'edit-group':()=>groupForm(group()),
-  pick:b=>{S.pickFor=b.dataset.v;fileEl.multiple=b.dataset.v==='album';fileEl.value='';fileEl.click()},
-  'clear-img':()=>{S.img=null;render()},
-  like:async b=>{const p=S.data.posts.find(x=>x.id===b.dataset.v);if(!p)return;haptic();try{await be.toggleLike(S.gid,p)}catch(e){fail(e)}},
-  comments:b=>openComments(b.dataset.v),
-  'del-comment':async b=>{const pid=S.comments&&S.comments.pid;if(!pid)return;try{await be.deleteComment(S.gid,pid,b.dataset.v)}catch(e){fail(e)}},
-  'post-menu':async b=>{const p=S.data.posts.find(x=>x.id===b.dataset.v);if(!p)return;
-    if(await confirmSheet({title:'למחוק את הפוסט?',msg:p.imageId?'גם התמונה תימחק מהאלבום.':'',actions:[{label:'מחיקת הפוסט',destructive:true}]})===0){try{await be.deletePost(S.gid,p);hud('הפוסט נמחק')}catch(e){fail(e)}}},
-  'view-img':b=>{S.viewer={id:b.dataset.v};renderViewer();const c=$('.viewer [data-a=viewer-close]');if(c)c.focus({preventScroll:true})},
-  'viewer-close':()=>{S.viewer=null;renderViewer()},
-  'viewer-step':b=>{const l=S.data.images,i=l.findIndex(x=>x.id===S.viewer.id)+ +b.dataset.v;if(l[i]){S.viewer.id=l[i].id;renderViewer()}},
-  'viewer-del':async()=>{const im=S.data.images.find(x=>x.id===S.viewer.id);if(!im)return;
-    if(await confirmSheet({title:'למחוק את התמונה?',msg:'היא תימחק מהאלבום של כל הקבוצה.',actions:[{label:'מחיקת התמונה',destructive:true}]})===0){try{await be.deleteImage(S.gid,im);hud('התמונה נמחקה');A['viewer-close']()}catch(e){fail(e)}}},
-  rsvp:async b=>{haptic();try{await be.rsvp(S.gid,b.dataset.v,b.dataset.r)}catch(e){fail(e)}},
-  'new-event':()=>eventForm(),
-  'event-menu':async b=>{const e=S.data.events.find(x=>x.id===b.dataset.v);if(!e)return;
-    if(await confirmSheet({title:e.title,actions:[{label:'מחיקת האירוע',destructive:true}]})===0){try{await be.deleteEvent(S.gid,e.id);hud('האירוע נמחק')}catch(x){fail(x)}}},
-  'share-invite':async()=>{const g=group(),url=inviteLink(g),text=`הצטרפו לקבוצה "${g.name}" ב-Nest. קוד ההזמנה: ${g.inviteCode}`;
-    if(navigator.share){try{await navigator.share({title:'הזמנה ל-Nest',text:text,url:url});return}catch(e){if(e&&e.name==='AbortError')return}}copyText(text+'\n'+url)},
-  'copy-invite':()=>{const g=group();copyText(inviteLink(g))},
-  'member-menu':async b=>{const g=group(),m=S.members[b.dataset.v]||{};
-    if(await confirmSheet({title:nameOf(m),msg:'הוצאה מהקבוצה מבטלת את הגישה שלו/ה לפיד, לצ׳אט ולאלבום.',actions:[{label:'הוצאה מהקבוצה',destructive:true}]})===0){try{await be.removeMember(g.id,b.dataset.v);hud(`${first(nameOf(m))} הוצא/ה מהקבוצה`)}catch(e){fail(e)}}},
-  'new-code':async()=>{const g=group();if(await confirmSheet({title:'להחליף את קוד ההזמנה?',msg:'הקישור הישן יפסיק לעבוד.',actions:[{label:'החלפת הקוד'}]})===0){try{await be.newInviteCode(g);hud('קוד חדש נוצר')}catch(e){fail(e)}}},
-  'delete-group':async()=>{const g=group();if(await confirmSheet({title:`למחוק את "${g.name}"?`,msg:'הקבוצה תיעלם לכל החברים, עם הפיד, הצ׳אט, האירועים והאלבום. אי אפשר לבטל.',actions:[{label:'מחיקת הקבוצה',destructive:true}]})===0){try{await be.deleteGroup(g);go('groups');hud('הקבוצה נמחקה')}catch(e){fail(e)}}},
-  'leave-group':async()=>{const g=group();if(await confirmSheet({title:`לצאת מ"${g.name}"?`,msg:'כדי לחזור תצטרכו קוד הזמנה חדש.',actions:[{label:'יציאה מהקבוצה',destructive:true}]})===0){try{await be.leaveGroup(g.id);go('groups');hud('יצאת מהקבוצה')}catch(e){fail(e)}}},
-  'sign-out':async()=>{if(await confirmSheet({title:'להתנתק?',msg:be.mode==='live'?'הקבוצות שלך נשארות. אפשר להיכנס שוב עם Google.':'בתצוגה המקדימה הכול יתחיל מחדש.',actions:[{label:'התנתקות'}]})===0){closeGroup();if(unsubGroups)unsubGroups();unsubGroups=null;await be.signOut()}}
-};
-const F={
-  'local-login':async()=>{const n=$('#local-name').value.trim();if(!n){$('#local-name').focus();hud('כתבו את השם שלכם',true);return}await be.signIn(n)},
-  'post-form':async()=>{const text=(S.drafts.post||'').trim();if(!text&&!S.img)return;S.busy=true;updateSend();render();
-    try{await be.addPost(S.gid,{text:text,image:S.img});S.drafts.post='';S.img=null;haptic(12);hud('פורסם')}catch(e){fail(e)}finally{S.busy=false;render()}},
-  'chat-form':async()=>{const t=(S.drafts.chat||'').trim();if(!t)return;S.drafts.chat='';const el=$('#chat-in');if(el){el.value='';grow(el)}updateSend();
-    try{await be.sendMessage(S.gid,t);markSeen()}catch(e){S.drafts.chat=t;fail(e);render()}},
-  'cmt-form':async f=>{const el=f.querySelector('#cmt-in'),t=el.value.trim();if(!t||!S.comments)return;el.value='';grow(el);try{await be.addComment(S.gid,S.comments.pid,t)}catch(e){el.value=t;fail(e)}},
-  'name-form':async()=>{const n=$('#pf-name').value.trim();if(!n){hud('השם לא יכול להיות ריק',true);return}try{await be.saveProfile({name:n});S.user.name=n;S.members[S.user.id]=Object.assign({},S.members[S.user.id],{name:n});hud('השם נשמר');render()}catch(e){fail(e)}}
-};
-
-document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b&&A[b.dataset.a]){e.preventDefault();A[b.dataset.a](b)}});
-document.addEventListener('submit',e=>{e.preventDefault();const f=F[e.target.id];if(f)f(e.target)});
-document.addEventListener('input',e=>{const el=e.target;if(el.dataset&&el.dataset.draft){S.drafts[el.dataset.draft]=el.value;updateSend()}if(el.tagName==='TEXTAREA')grow(el)});
-document.addEventListener('keydown',e=>{
-  const t=e.target;
-  if(e.key==='Enter'&&!e.shiftKey&&t&&(t.id==='chat-in'||t.id==='cmt-in')&&!e.isComposing){e.preventDefault();t.form.requestSubmit()}
-  if(e.key==='Escape'){if(S.viewer)A['viewer-close']();else if(closeForm)closeForm();else{const c=sheetEl.querySelector('.cancel');if(c)c.click()}}
-  if(S.viewer&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){A['viewer-step']({dataset:{v:e.key==='ArrowLeft'?'1':'-1'}})}
-});
-fileEl.addEventListener('change',async()=>{
-  const files=[...fileEl.files].filter(f=>f.type.startsWith('image/'));if(!files.length)return;
-  if(S.pickFor==='post'){try{S.img=await prepImage(files[0]);render();const t=$('#post-text');if(t)t.focus({preventScroll:true})}catch(e){hud('לא הצלחנו לפתוח את התמונה',true)}return}
-  hud(files.length===1?'מעלה תמונה…':`מעלה ${files.length} תמונות…`);
-  try{const imgs=[];for(const f of files)imgs.push(await prepImage(f));await be.addPhotos(S.gid,imgs);haptic(12);hud(imgs.length===1?'התמונה נוספה':`${imgs.length} תמונות נוספו`)}catch(e){fail(e)}
-});
-
-function clock(){const el=$('#sb-time');if(el){const d=new Date();el.textContent=d.getHours()+':'+pad(d.getMinutes())}}
-clock();setInterval(clock,30000);
-setInterval(()=>{if(!typing()&&!closeForm&&!S.viewer)softRender()},60000);
-if(onSite&&'serviceWorker' in navigator){try{navigator.serviceWorker.register('./sw.js').catch(()=>{})}catch(e){}}
-
-/* ---------- boot ---------- */
-async function boot(){
-  render(true);
-  const live=FIREBASE_CONFIG&&onSite;
-  try{be=live?await LiveBackend(FIREBASE_CONFIG):LocalBackend()}catch(e){console.error(e);be=LocalBackend();hud('לא הצלחנו להתחבר לשרת. בדקו את החיבור ונסו שוב.',true)}
-  be.onAuth(u=>{
-    S.booting=false;S.user=u;
-    if(!u){closeGroup();if(unsubGroups)unsubGroups();unsubGroups=null;S.groups=[];S.screen='groups';S.anim='fade';render(true);return}
-    S.members[u.id]=u;watchGroups();S.anim='fade';render(true);
-    if(S.joinCode){const c=S.joinCode;S.joinCode='';setTimeout(()=>joinForm(c),400)}
-  });
-}
-try{history.replaceState({screen:'groups'},'')}catch(e){}
-boot();
-</script>
+<script type="module" src="js/app.js"></script>
