@@ -362,6 +362,21 @@ button.row:active{background:var(--fill2)}
 .sys{display:flex;justify-content:center;margin:10px 0}
 .sys-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--bg2);font-size:13px;font-weight:600;color:var(--label2)}
 .sys-pill.miss{color:var(--red)}
+.sys-pill.sos{background:#ff3b30;color:#fff;text-decoration:none}
+.sys .sos-btn{margin-inline-start:8px;background:#ff3b30;color:#fff}
+.sos-hold{position:relative;overflow:hidden;height:32px;padding:0 12px;margin-inline-end:6px;border:0;border-radius:999px;background:#ff3b30;color:#fff;font-family:inherit;font-size:14px;font-weight:800;letter-spacing:.5px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;box-shadow:0 4px 14px rgba(255,59,48,.35);cursor:pointer}
+.sos-hold .sos-ring{position:absolute;inset:0;background:rgba(255,255,255,.35);transform:scaleX(0);transform-origin:right;pointer-events:none}
+.sos-hold.holding .sos-ring{transform:scaleX(1);transition:transform 1.5s linear}
+.sos-hold.fired{background:#b00020}
+.sos-ic{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--bg2);color:var(--ok);flex:none}
+.sos-ic.red{color:#ff3b30}
+.call.sos-alert{background:linear-gradient(180deg,#b00020,#ff3b30);justify-content:space-between}
+.sos-big{font-size:44px;font-weight:900;letter-spacing:4px;color:#fff;margin-bottom:14px;animation:sosPulse 1s ease-in-out infinite}
+@keyframes sosPulse{50%{opacity:.45;transform:scale(.94)}}
+.sos-acts{display:grid;gap:10px;padding:0 24px calc(env(safe-area-inset-bottom,0px) + 34px)}
+.sos-acts .btn{height:54px;font-size:17px;justify-content:center}
+.sos-acts .sos-call{background:#fff;color:#b00020}
+.sos-acts .sos-sec{background:rgba(255,255,255,.2);color:#fff}
 .typing{min-height:20px;font-size:13px;color:var(--label2);padding:4px 40px 0;font-style:italic}
 .aud{display:flex;align-items:center;gap:8px;min-width:190px;padding:2px 0}
 .aud-btn{width:34px;height:34px;flex:none;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,currentColor 16%,transparent)}

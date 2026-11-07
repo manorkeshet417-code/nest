@@ -20,6 +20,11 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['name', 'photo', 'birthday'])
         && request.resource.data.name is string && request.resource.data.name.size() <= 40
         && (!('birthday' in request.resource.data) || (request.resource.data.birthday is string && request.resource.data.birthday.size() <= 10));
+
+      // Private settings (SOS emergency contacts): only the owner can read or write them.
+      match /private/{docId} {
+        allow read, write: if signedIn() && me() == uid;
+      }
     }
 
     // Invite codes: anyone signed in who knows the code can look up which group it opens.

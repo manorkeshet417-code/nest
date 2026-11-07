@@ -81,15 +81,28 @@ async function copyText(t) { try { await navigator.clipboard.writeText(t); hapti
 
 /* ---------- notifications ---------- */
 let swReg = null, prevAct = {};
-if (onSite && 'serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js').then(r => { swReg = r; }).catch(() => {}); }
-function notify(title, body, tag) {
-  if (!('Notification' in window) || Notification.permission !== 'granted' || !swReg) return;
-  swReg.showNotification(title, { body, tag, renotify: true, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', lang: 'he', dir: 'rtl' }).catch(() => {});
+if (onSite && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(r => { swReg = r; }).catch(() => {});
+  // a new version took over: reload when nothing is in progress
+  let hadController = !!navigator.serviceWorker.controller, updatePending = false;
+  const applyUpdate = () => { if (!updatePending) return; if ((calls && calls.state) || S.incoming || S.sosAlert || S.rec || closeForm || typing()) { setTimeout(applyUpdate, 5000); return; } location.reload(); };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadController) { hadController = true; return; } updatePending = true; applyUpdate(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && swReg) swReg.update().catch(() => {}); });
+  setInterval(() => { if (swReg) swReg.update().catch(() => {}); }, 30 * 60 * 1000);
 }
+function notify(title, body, tag, urgent) {
+  if (!('Notification' in window) || Notification.permission !== 'granted' || !swReg) return;
+  swReg.showNotification(title, { body, tag, renotify: true, requireInteraction: !!urgent, vibrate: urgent ? [600, 200, 600, 200, 600, 200, 600] : [200], icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', lang: 'he', dir: 'rtl' }).catch(() => {});
+}
+const isSos = b => /🆘|📍 מיקום החירום/.test(b || ''), isCheckin = b => (b || '').includes('✅ הגיע/ה בשלום');
 // New activity from someone else: a system notification when the app is in the background, a banner when elsewhere in the app
 function activity(key, title, body, lastAt, lastBy, viewing) {
   const prev = prevAct[key]; prevAct[key] = lastAt || 0;
+  // an SOS from the last 30 minutes still alerts when the app opens afterwards
+  if (prev === undefined && isSos(body) && lastBy && lastBy !== me() && Date.now() - lastAt < 18e5 && (LS.get('nest.sosSeen') || 0) < lastAt) { sosIncoming(key, title, body, lastAt, lastBy); return; }
   if (prev === undefined || !lastAt || lastAt <= prev || !lastBy || lastBy === me()) return;
+  if (isSos(body)) { sosIncoming(key, title, body, lastAt, lastBy); return; }
+  if (isCheckin(body)) { notify(title, body, key); chime(); hud(body.slice(0, 70)); return; }
   if (document.hidden) notify(title, body, key);
   else if (!viewing) hud(`${title}: ${body}`.slice(0, 70));
 }
@@ -140,6 +153,8 @@ function watchAll() {
     softRender();
   }, fail);
   if (be.rtc) { calls = CallManager(be.rtc, callUI); unsub.incoming = calls.watchIncoming(); }
+  be.sosContacts().then(l => { S.sos = l; loadUsers(l.filter(c => c.uid).map(c => c.uid)); softRender(); }).catch(() => {});
+  refreshMediaPerm();
 }
 function stopAll() {
   closeGroup(); closeDM();
@@ -283,7 +298,8 @@ function birthdaysToday() {
 }
 function viewGroups() {
   const u = S.user, list = S.groups, bdays = birthdaysToday();
-  return bar({ title: 'קבוצות', eyebrow: local() ? '<span class="pill">תצוגה מקדימה</span>' : '', trail: `<button class="nb-btn" data-a="new-group" aria-label="קבוצה חדשה">${icon('plus', 24, 2.2)}</button>` }) +
+  return bar({ title: 'קבוצות', eyebrow: local() ? '<span class="pill">תצוגה מקדימה</span>' : '', trail: `<button class="sos-hold" data-hold="sos" aria-label="SOS: לחיצה ארוכה"><span class="sos-ring"></span>SOS</button><button class="nb-btn" data-a="new-group" aria-label="קבוצה חדשה">${icon('plus', 24, 2.2)}</button>` }) +
+  permCard() +
   (canOfferInstall() && !LS.get('nest.noInstall') ? `<div class="tip">${icon('sparkles', 24)}<span class="body"><b>התקינו את Nest</b><br><span style="color:var(--label2);font-size:13px">${inAppBrowser() ? 'פתחו בדפדפן Chrome כדי להתקין' : 'אייקון במסך הבית, מסך מלא, עובד גם בלי אינטרנט'}</span></span><button class="btn filled sm" data-a="install">התקנה</button><button class="icon-btn muted sm" data-a="install-hide" aria-label="סגירה">${icon('xmark', 16)}</button></div>` : '') +
   bdays.map(b => `<div class="tip bday">${icon('cake', 26)}<span class="body">${b.id === u.id ? '<b>יום הולדת שמח!</b> כל המשפחה חוגגת איתך 🎉' : `<b>היום יום ההולדת של ${esc(nameOf(b))}</b> 🎂`}</span>${b.id !== u.id && !local() ? `<button class="btn filled sm" data-a="dm" data-v="${esc(b.id)}">ברכה</button>` : ''}</div>`).join('') +
   (list.length ? `<div class="list av" style="--inset:80px">${list.map(g => { const un = groupUnread(g); return `<button class="row" data-a="open" data-v="${esc(g.id)}" style="padding:10px 16px">${gtile(g)}<span class="body"><span class="t" style="font-weight:600">${esc(g.name)}${g.ownerId === u.id ? '<span class="badge">בעלים</span>' : ''}</span><span class="sub" dir="auto">${esc(g.lastMessage || `${g.members.length} חברים`)}</span></span><span class="when${un ? ' un' : ''}">${g.lastAt ? listTime(g.lastAt) : ''}${un ? '<span class="udot"></span>' : ''}</span></button>`; }).join('')}</div>`
@@ -338,7 +354,9 @@ async function refreshMediaPerm() {
 function mediaPermRow() {
   const p = S.mediaPerm || {};
   if (p.mic === 'granted' && p.cam === 'granted') return '<span class="val" style="color:var(--ok)">מאושר</span>';
-  if (p.mic === 'denied' || p.cam === 'denied') return '<span class="val" style="color:var(--red)">חסום</span><button class="btn tinted sm" data-a="media-fix">איך מתקנים</button>';
+  if (p.mic === 'granted') return '<span class="val" style="color:var(--ok)">מיקרופון ✓</span><button class="btn tinted sm" data-a="media-check">מצלמה</button>';
+  // the browser's stored answer can be stale, so always offer a real retry
+  if (p.mic === 'denied') return '<button class="btn tinted sm" data-a="media-check">ניסיון שוב</button><button class="btn tinted sm" data-a="media-fix">איך מתקנים</button>';
   return '<button class="btn tinted sm" data-a="media-check">אישור</button>';
 }
 function viewProfile() {
@@ -351,12 +369,16 @@ function viewProfile() {
   <div class="section-h">יום הולדת</div>
   <form id="bday-form" class="list"><div class="field"><label for="pf-bday">${icon('cake', 22)}</label><input id="pf-bday" type="date" value="${esc(u.birthday || '')}"><button class="btn tinted sm">שמירה</button></div></form>
   <p class="section-f">${b ? (b.days === 0 ? 'היום! מזל טוב 🎉' : `עוד ${b.days} ימים. `) + 'המשפחה תראה את התאריך בלוח האירועים.' : 'כך המשפחה תדע מתי לחגוג איתך. הוא יופיע בלוח האירועים של הקבוצות.'}</p>
+  <div class="section-h">SOS · אנשי קשר לחירום</div>
+  <div class="list">${(S.sos || []).map((c, i) => `<div class="row">${c.uid ? avatar(S.members[c.uid] || { id: c.uid, name: c.name }, 34) : `<span class="sos-ic">${icon('phoneF', 18)}</span>`}<span class="body"><span class="t">${esc(c.name)}</span><span class="sub" dir="ltr" style="text-align:right">${esc(c.phone || 'שיחה ב-Nest')}</span></span><button class="icon-btn muted sm" data-a="sos-del" data-v="${i}" aria-label="הסרה">${icon('xmark', 16)}</button></div>`).join('')}
+  ${(S.sos || []).length < 5 ? `<button class="row" data-a="sos-add">${icon('phone', 22)}<span class="body t acc">הוספת מספר טלפון</span></button>${local() ? '' : `<button class="row" data-a="sos-add-member">${icon('people', 22)}<span class="body t acc">הוספה מהמשפחה (שיחה ב-Nest)</span></button>`}` : ''}</div>
+  <p class="section-f">לחיצה ארוכה על כפתור SOS במסך הקבוצות: מחייגת לאיש הקשר הראשון ושולחת לכל הקבוצות התראת חירום עם המיקום שלך. רק את/ה רואה את הרשימה הזו.</p>
   <div class="section-h">מיקרופון ומצלמה</div>
   <div class="list"><div class="row">${icon('video', 22)}<span class="body t">לשיחות ולהודעות קוליות</span>${mediaPermRow()}</div></div>
-  <p class="section-f">${S.mediaPerm && (S.mediaPerm.mic === 'denied' || S.mediaPerm.cam === 'denied') ? 'החסימה נשמרת בדפדפן. "איך מתקנים" מראה בדיוק איפה משחררים אותה.' : 'הדפדפן ישאל פעם אחת. לחצו "אפשר".'}</p>
+  <p class="section-f">${S.mediaPerm && S.mediaPerm.mic === 'denied' ? 'הדפדפן זוכר סירוב קודם. "ניסיון שוב" שואל מחדש, ואם לא יוצא חלון, "איך מתקנים" מראה איפה משחררים.' : 'לשיחה קולית מספיק מיקרופון. כשהדפדפן שואל, לחצו "אפשר" ולא לסגור את החלון, אחרת Chrome חוסם אוטומטית.'}</p>
   <div class="section-h">התראות</div>
   <div class="list"><div class="row">${icon('bell', 22)}<span class="body t">התראות על הודעות ושיחות</span>${perm === 'granted' ? '<span class="val">פעילות</span>' : perm === 'denied' ? '<span class="val">חסומות</span>' : perm === 'unsupported' ? '<span class="val">לא נתמך</span>' : '<button class="btn tinted sm" data-a="notif">הפעלה</button>'}</div></div>
-  <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : 'ההתראות מגיעות כשהאפליקציה פתוחה ברקע.'}</p>
+  <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : 'התראות, SOS ו"הגעתי בשלום" מגיעים כש-Nest פתוח או ברקע (לא אחרי סגירה מלאה של האפליקציה).'}</p>
   ${canOfferInstall() ? `<div class="section-h"></div><div class="list"><button class="row" data-a="install">${icon('sparkles', 22)}<span class="body t">הוספה למסך הבית</span><span class="chev">${icon('chev', 16)}</span></button></div>` : ''}
   ${onSite && !standalone() ? `<div class="section-h">דפדפן</div><div class="list"><a class="row" href="${esc(chromeLink())}" style="text-decoration:none;color:inherit">${icon('link', 22)}<span class="body t">פתיחה ב-Chrome</span><span class="chev">${icon('chev', 16)}</span></a><button class="row" data-a="copy-link">${icon('copy', 22)}<span class="body t">העתקת הקישור</span></button></div><p class="section-f">${inAppBrowser() ? 'את/ה עכשיו בתוך אפליקציה אחרת. ב-Chrome אפשר להתקין, להיכנס עם Google ולהתקשר.' : 'את/ה כבר בדפדפן. אפשר להתקין: ⋮ ← "התקנת אפליקציה".'}</p>` : ''}
   <div class="section-h"></div><div class="list"><button class="row red" data-a="sign-out">התנתקות</button></div>
@@ -417,6 +439,12 @@ function chatBody(desc, kind, ctx) {
     if (m.kind === 'call') {
       const c = m.call || {}, missed = c.status !== 'done', who = m.authorId === u.id ? 'יוצאת' : 'נכנסת';
       html += `<div class="sys"><button class="sys-pill${missed ? ' miss' : ''}" data-a="call" data-v="${esc(c.kind || 'audio')}">${icon(c.kind === 'video' ? 'video' : 'phone', 16)} ${missed ? (c.status === 'declined' ? 'שיחה שנדחתה' : 'שיחה שלא נענתה') : `שיחה ${c.kind === 'video' ? 'בווידאו' : 'קולית'} ${who} · ${fmtDur(c.dur)}`} · ${hhmm(m.createdAt)}</button></div>`;
+      lastA = ''; return;
+    }
+    if (m.kind === 'sos') {
+      const nm = esc(first(nameOf(S.members[m.authorId])));
+      html += m.loc ? `<div class="sys"><a class="sys-pill sos" href="https://maps.google.com/?q=${+m.loc.lat},${+m.loc.lng}" target="_blank" rel="noopener">📍 ${m.authorId === u.id ? 'המיקום שלך' : 'המיקום של ' + nm} · פתיחה במפות · ${hhmm(m.createdAt)}</a></div>`
+        : `<div class="sys"><span class="sys-pill sos">🆘 ${m.authorId === u.id ? 'שלחת' : nm + ' שלח/ה'} קריאת SOS · ${hhmm(m.createdAt)}</span>${m.authorId !== u.id && !local() ? `<button class="btn filled sm sos-btn" data-a="sos-person" data-v="${esc(m.authorId)}">${icon('phoneF', 16)} התקשרות</button>` : ''}</div>`;
       lastA = ''; return;
     }
     if (m.kind === 'checkin') {
@@ -558,6 +586,112 @@ function playAudio(id) {
   syncAudioUI();
 }
 
+/* ---------- SOS & check-in ---------- */
+async function toAllGroups(m) {
+  const gs = S.groups; if (!gs.length) { hud('עוד אין קבוצות לשלוח אליהן', true); return 0; }
+  const r = await Promise.allSettled(gs.map(g => be.sendMessage({ t: 'g', id: g.id }, Object.assign({}, m))));
+  const ok = r.filter(x => x.status === 'fulfilled').length;
+  if (!ok) fail(r[0].reason);
+  return ok;
+}
+function chime(urgent) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    (urgent ? [0, .18, .36, .54] : [0, .16]).forEach((d, i) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = urgent ? 'square' : 'sine'; o.frequency.value = urgent ? (i % 2 ? 660 : 990) : (i ? 1320 : 880); o.connect(g); g.connect(actx.destination); const t = actx.currentTime + d; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(urgent ? .25 : .15, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + .16); o.start(t); o.stop(t + .18); });
+  } catch (e) {}
+  haptic(urgent ? [600, 200, 600, 200, 600] : [60, 80, 60]);
+}
+let sosAlarm = null;
+function sosIncoming(key, title, body, lastAt, lastBy) {
+  LS.set('nest.sosSeen', lastAt);
+  notify('🆘 ' + title, body, 'sos:' + key, true);
+  const gid = key.startsWith('g:') ? key.slice(2) : null;
+  S.sosAlert = { gid, by: lastBy, title, body, at: lastAt };
+  loadUsers([lastBy]).then(renderSosAlert);
+  renderSosAlert();
+  clearInterval(sosAlarm); let n = 0; chime(true); sosAlarm = setInterval(() => { if (++n > 20 || !S.sosAlert) { clearInterval(sosAlarm); return; } chime(true); }, 1500);
+}
+function closeSosAlert() { S.sosAlert = null; clearInterval(sosAlarm); renderSosAlert(); }
+function renderSosAlert() {
+  let el = $('#sos-alert'); const a = S.sosAlert;
+  if (!a) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'sos-alert'; el.className = 'call sos-alert'; el.setAttribute('role', 'alertdialog'); phoneEl.appendChild(el); }
+  const u = S.members[a.by] || { id: a.by };
+  el.innerHTML = `<div class="call-top"><div class="sos-big">SOS</div><div class="call-av">${avatar(u, 96)}</div><div class="call-name">${esc(nameOf(u))} צריך/ה עזרה</div><div class="call-st">${esc(a.title)} · ${hhmm(a.at)}</div></div>
+    <div class="sos-acts"><button class="btn filled sos-call" data-a="sos-alert-call">${icon('phoneF', 20)} התקשרות עכשיו</button>${a.gid ? '<button class="btn sos-sec" data-a="sos-alert-open">פתיחת הצ׳אט והמיקום</button>' : ''}<button class="btn sos-sec" data-a="sos-alert-close">סגירה</button></div>`;
+}
+// Hold SOS for 1.5s: every group is alerted at once; the phone call starts on release (dialing needs that tap)
+let sosT = null, sosArmed = false;
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('[data-hold=sos]'); if (!b) return;
+  e.preventDefault(); b.classList.add('holding'); sosArmed = false; haptic(10);
+  clearTimeout(sosT); sosT = setTimeout(() => { sosArmed = true; b.classList.remove('holding'); b.classList.add('fired'); sosFire(); }, 1500);
+});
+document.addEventListener('pointerup', () => {
+  const was = !!sosT && !sosArmed && $$('[data-hold=sos].holding').length;
+  clearTimeout(sosT); sosT = null; $$('[data-hold=sos]').forEach(x => x.classList.remove('holding'));
+  if (sosArmed) { sosArmed = false; sosDial(); setTimeout(() => $$('[data-hold=sos]').forEach(x => x.classList.remove('fired')), 1500); }
+  else if (was) hud('החזיקו את SOS לחוץ שנייה וחצי', true);
+}, true);
+document.addEventListener('pointercancel', () => { if (!sosArmed) { clearTimeout(sosT); sosT = null; $$('[data-hold=sos]').forEach(x => x.classList.remove('holding')); } }, true);
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-hold=sos]')) e.preventDefault(); });
+async function sosFire() {
+  chime(true);
+  if (local()) { hud('SOS נשלח (תצוגה מקדימה)', true); return; }
+  const n = await toAllGroups({ kind: 'sos', text: '' });
+  if (n) hud(`התראת חירום נשלחה ל-${n} ${n === 1 ? 'קבוצה' : 'קבוצות'}`, true);
+  // location follows as its own message, so the alert never waits for GPS
+  if (navigator.geolocation) navigator.geolocation.getCurrentPosition(p => {
+    toAllGroups({ kind: 'sos', text: '', loc: { lat: +p.coords.latitude.toFixed(5), lng: +p.coords.longitude.toFixed(5), acc: Math.round(p.coords.accuracy) } });
+  }, () => hud('המיקום לא נשלח. אפשרו גישה למיקום', true), { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+}
+const telOf = p => 'tel:' + String(p).replace(/[^\d+*#]/g, '');
+function sosDial() {
+  const l = S.sos || [], ph = l.find(c => c.phone), nest = l.find(c => c.uid);
+  sosSheet(true);
+  if (ph) location.href = telOf(ph.phone);
+  else if (nest) { if (closeForm) closeForm(); startCall(nest.uid, 'audio'); }
+}
+function sosSheet(fired) {
+  const l = S.sos || [];
+  const rows = l.map((c, i) => c.phone ? `<a class="row" href="${esc(telOf(c.phone))}" style="text-decoration:none;color:inherit"><span class="sos-ic">${icon('phoneF', 18)}</span><span class="body"><span class="t">${esc(c.name)}</span><span class="sub" dir="ltr" style="text-align:right">${esc(c.phone)}</span></span><span class="val acc">חיוג</span></a>`
+    : `<button class="row" data-a="sos-call" data-v="${i}">${avatar(S.members[c.uid] || { id: c.uid, name: c.name }, 34)}<span class="body"><span class="t">${esc(c.name)}</span><span class="sub">שיחה ב-Nest</span></span><span class="val acc">התקשרות</span></button>`).join('');
+  const em = [['100', 'משטרה'], ['101', 'מד"א'], ['102', 'כיבוי אש']].map(([n, t]) => `<a class="row" href="tel:${n}" style="text-decoration:none;color:inherit"><span class="sos-ic red">${icon('phoneF', 18)}</span><span class="body t">${t}</span><span class="val" dir="ltr">${n}</span></a>`).join('');
+  formSheet({ title: fired ? 'SOS נשלח' : 'SOS', body: `<p class="muted" style="margin:0 4px 12px">${fired ? 'כל הקבוצות קיבלו התראת חירום, והמיקום נשלח אחריה.' : 'לחיצה ארוכה על SOS שולחת התראה לכל הקבוצות ומחייגת לאיש הקשר הראשון.'}</p>
+    ${l.length ? `<div class="section-h">אנשי הקשר שלך</div><div class="list">${rows}</div>` : `<div class="list"><button class="row" data-a="sos-add">${icon('phone', 22)}<span class="body t acc">הגדרת איש קשר לחירום</span></button></div>`}
+    <div class="section-h">מוקדי חירום</div><div class="list">${em}</div>` });
+}
+function sosContactForm() {
+  formSheet({ title: 'איש קשר לחירום', action: 'הוספה', body: `<div class="list"><div class="field"><input id="sc-name" placeholder="שם" maxlength="30" autofocus></div><div class="field"><input id="sc-phone" type="tel" dir="ltr" placeholder="050-0000000" maxlength="20"></div></div><p class="section-f">הראשון ברשימה מחויג אוטומטית ב-SOS.</p>`,
+    onOk: async fs => {
+      const name = fs.querySelector('#sc-name').value.trim(), phone = fs.querySelector('#sc-phone').value.trim();
+      if (!name || phone.replace(/\D/g, '').length < 3) { hud('צריך שם ומספר טלפון', true); return false; }
+      const l = (S.sos || []).concat([{ name, phone }]).slice(0, 5); await be.saveSos(l); S.sos = l; hud('איש הקשר נשמר'); render();
+    } });
+}
+async function sosMemberPick() {
+  await loadUsers(allMemberIds());
+  const ids = allMemberIds().filter(i => i !== me() && !(S.sos || []).some(c => c.uid === i));
+  if (!ids.length) { hud('אין עוד בני משפחה להוספה', true); return; }
+  const r = await confirmSheet({ title: 'מי יקבל שיחת SOS ב-Nest?', actions: ids.map(i => ({ label: nameOf(S.members[i]) })) });
+  if (r < 0) return;
+  const l = (S.sos || []).concat([{ name: nameOf(S.members[ids[r]]), uid: ids[r] }]).slice(0, 5);
+  try { await be.saveSos(l); S.sos = l; hud('נוסף לאנשי הקשר לחירום'); render(); } catch (e) { fail(e); }
+}
+// Say what's coming before the browser's own prompt: a dismissed prompt makes Chrome block automatically
+async function prePermission(kind) {
+  await refreshMediaPerm();
+  const p = S.mediaPerm || {};
+  if (p.unknown || p.mic !== 'prompt') return true;
+  const r = await confirmSheet({ title: 'הדפדפן ישאל על המיקרופון' + (kind === 'video' ? ' והמצלמה' : ''), msg: 'לחצו "אפשר". אם סוגרים את החלון בלי לבחור, Chrome חוסם את השיחות אוטומטית.', actions: [{ label: 'הבנתי, להמשיך' }] });
+  return r === 0;
+}
+function permCard() {
+  const p = S.mediaPerm || {};
+  if (local() || LS.get('nest.permAsked') || inAppBrowser() || p.unknown || p.mic !== 'prompt') return '';
+  return `<div class="tip">${icon('phone', 24)}<span class="body"><b>הכנה לשיחות</b><br><span style="color:var(--label2);font-size:13px">אשרו מיקרופון עכשיו, כדי שהשיחות יעבדו מיד</span></span><button class="btn filled sm" data-a="perm-go">אישור</button><button class="icon-btn muted sm" data-a="perm-hide" aria-label="סגירה">${icon('xmark', 16)}</button></div>`;
+}
+
 /* ---------- calls ---------- */
 let ringTimer = null, callTick = null, actx = null;
 function ring(on) {
@@ -601,6 +735,7 @@ async function startCall(uid, kind) {
   if (calls.state) return;
   if (inAppBrowser()) { showMediaHelp(null, kind); return; }
   if (!navigator.mediaDevices || !window.RTCPeerConnection) { hud('הדפדפן הזה לא תומך בשיחות', true); return; }
+  if (!(await prePermission(kind))) return;
   try { await be.openChat(uid); await loadUsers([uid]); await calls.start(uid, kind); }
   catch (e) { fail(e); }
 }
@@ -998,7 +1133,21 @@ const A = {
     const r = await confirmSheet({ actions: acts }); const a = acts[r]; if (!a) return;
     A[a.k]({ dataset: { v: 'chat' } });
   },
-  checkin: async () => { try { await send({ kind: 'checkin', text: '' }); haptic(20); hud('כולם יודעים שהגעת בשלום'); } catch (e) {} },
+  checkin: async () => {
+    if (local()) { try { await send({ kind: 'checkin', text: '' }); } catch (e) {} return; }
+    const n = await toAllGroups({ kind: 'checkin', text: '' });
+    if (n) { haptic(20); hud(n === 1 ? 'כולם בקבוצה יודעים שהגעת בשלום' : `עדכנת ${n} קבוצות שהגעת בשלום`); render(); }
+  },
+  'sos-help': () => sosSheet(),
+  'sos-add': () => sosContactForm(),
+  'sos-add-member': () => sosMemberPick(),
+  'sos-del': async b => { const l = (S.sos || []).filter((_, i) => i !== +b.dataset.v); try { await be.saveSos(l); S.sos = l; render(); } catch (e) { fail(e); } },
+  'sos-call': b => { const c = (S.sos || [])[+b.dataset.v]; if (c && c.uid) { if (closeForm) closeForm(); startCall(c.uid, 'audio'); } },
+  'sos-alert-call': () => { const a = S.sosAlert; closeSosAlert(); if (a) startCall(a.by, 'audio'); },
+  'sos-alert-open': () => { const a = S.sosAlert; closeSosAlert(); if (a && a.gid) go('group', { gid: a.gid, gtab: 'chat' }); },
+  'sos-alert-close': () => closeSosAlert(),
+  'perm-go': async () => { LS.set('nest.permAsked', 1); await A['media-check'](); },
+  'perm-hide': () => { LS.set('nest.permAsked', 1); render(); },
   emoji: b => emojiSheet(b.dataset.v),
   'play-video': async b => {
     const kind = b.dataset.k, id = b.dataset.v;
@@ -1071,15 +1220,12 @@ const A = {
   'sign-out': async () => { if (await confirmSheet({ title: 'להתנתק?', msg: be.mode === 'live' ? 'הקבוצות והשיחות שלך נשארות. אפשר להיכנס שוב עם Google.' : 'בתצוגה המקדימה הכול יתחיל מחדש.', actions: [{ label: 'התנתקות' }] }) === 0) { stopAll(); await be.signOut(); } },
   'media-check': async () => {
     if (inAppBrowser()) { showMediaHelp(null, 'video'); return; }
-    try {
-      const st = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-      st.getTracks().forEach(t => t.stop()); hud('המיקרופון והמצלמה מאושרים');
-    } catch (e) {
-      // a phone without a usable camera can still talk
-      if (/NotFound|NotReadable|Overconstrained/.test(e.name || '')) {
-        try { const a = await navigator.mediaDevices.getUserMedia({ audio: true }); a.getTracks().forEach(t => t.stop()); hud('המיקרופון מאושר. המצלמה לא זמינה כרגע', true); }
-        catch (x) { showMediaHelp(x, 'audio'); }
-      } else showMediaHelp(e, 'video');
+    let mic = false;
+    try { const a = await navigator.mediaDevices.getUserMedia({ audio: true }); a.getTracks().forEach(t => t.stop()); mic = true; }
+    catch (e) { showMediaHelp(e, 'audio'); }
+    if (mic) {
+      try { const v = await navigator.mediaDevices.getUserMedia({ video: true }); v.getTracks().forEach(t => t.stop()); hud('המיקרופון והמצלמה מאושרים'); }
+      catch (e) { hud('המיקרופון מאושר, אפשר להתקשר. המצלמה לא אושרה', true); }
     }
     await refreshMediaPerm(); render();
   },
@@ -1102,7 +1248,8 @@ const A = {
   'rec-send': () => recStop(),
   'rec-cancel': () => recCancel(),
   // calls
-  'call-accept': async () => { const c = S.incoming; if (!c) return; S.incoming = null; ring(false); renderIncoming(); try { await calls.accept(c); } catch (e) { fail(e); } },
+  'sos-person': b => startCall(b.dataset.v, 'audio'),
+  'call-accept': async () => { const c = S.incoming; if (!c) return; S.incoming = null; ring(false); renderIncoming(); if (S.mediaPerm && S.mediaPerm.mic === 'prompt') hud('לחצו "אפשר" כשהדפדפן שואל על המיקרופון'); try { await calls.accept(c); } catch (e) { fail(e); } },
   'call-decline': () => { const c = S.incoming; if (!c) return; S.incoming = null; ring(false); renderIncoming(); calls.decline(c); },
   'call-end': () => calls && calls.hangup(),
   'call-mute': () => calls && calls.toggleMute(),

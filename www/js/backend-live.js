@@ -18,7 +18,7 @@ export async function LiveBackend(cfg) {
   };
   const ucache = {};
   let me = null;
-  const preview = m => m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
+  const preview = m => m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
   const touch = (gid, text) => updateDoc(doc(db, 'groups', gid), { lastMessage: text.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id }).catch(() => {});
   const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50], capsules: ['openAt', 'asc', 100], quotes: ['createdAt', 'desc', 200] };
   const blobCol = s => s.t === 'g' ? collection(db, 'groups', s.id, 'blobs') : collection(db, 'chats', s.id, 'blobs');
@@ -55,6 +55,9 @@ export async function LiveBackend(cfg) {
       catch (e) { if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) await Au.signInWithRedirect(auth, p); else throw e; }
     },
     signOut() { return Au.signOut(auth); },
+    // Emergency contacts live in a private doc only the owner can read
+    async sosContacts() { try { const s = await getDoc(doc(db, 'users', me.id, 'private', 'sos')); return s.exists() ? (s.data().list || []) : []; } catch (e) { return []; } },
+    async saveSos(list) { await setDoc(doc(db, 'users', me.id, 'private', 'sos'), { list }); },
     async saveProfile(o) { await setDoc(doc(db, 'users', me.id), o, { merge: true }); Object.assign(me, o); ucache[me.id] = me; },
     async users(ids, fresh) {
       await Promise.all(ids.filter(i => fresh || !ucache[i]).map(async i => {

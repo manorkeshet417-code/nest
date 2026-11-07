@@ -2,7 +2,11 @@
 // calls/{id} holds offer/answer/status, fromCandidates/toCandidates hold ICE candidates.
 // Media flows directly between the two phones (STUN only, so some strict networks can block it).
 
-const ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
+// STUN finds a direct path; the TURN relay carries the call when a mobile network blocks direct paths.
+const ICE = { iceServers: [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.relay.metered.ca:80'] },
+  { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
+] };
 const RING_MS = 40000;
 
 export function CallManager(rtc, ui) {
@@ -30,8 +34,8 @@ export function CallManager(rtc, ui) {
   async function getMedia(kind) {
     try { return await media(kind); }
     catch (e) {
-      if (kind !== 'video' || !/NotReadable|NotFound|Overconstrained|TrackStart|Abort/.test(e.name || '')) throw e;
-      const s = await media('audio'); ui.toast('המצלמה לא זמינה, ממשיכים בשיחה קולית'); if (cur) cur.camOff = true; return s;
+      if (kind !== 'video' || !/NotReadable|NotFound|Overconstrained|TrackStart|Abort|NotAllowed|Permission/.test(e.name || '')) throw e;
+      const s = await media('audio'); ui.toast(/NotAllowed|Permission/.test(e.name || '') ? 'המצלמה חסומה, ממשיכים בשיחה קולית' : 'המצלמה לא זמינה, ממשיכים בשיחה קולית'); if (cur) cur.camOff = true; return s;
     }
   }
 
@@ -42,7 +46,7 @@ export function CallManager(rtc, ui) {
     pc.onconnectionstatechange = () => {
       if (!cur) return;
       if (pc.connectionState === 'connected') { if (!cur.startedAt) cur.startedAt = Date.now(); cur.status = 'live'; ui.update(); }
-      if (pc.connectionState === 'failed') { ui.toast('החיבור נכשל. ייתכן שהרשת חוסמת שיחות.'); finish('ended'); }
+      if (pc.connectionState === 'failed') { try { pc.restartIce(); } catch (e) {} clearTimeout(cur.failT); cur.failT = setTimeout(() => { if (cur && cur.pc === pc && pc.connectionState !== 'connected') { ui.toast('החיבור נכשל. נסו שוב, או עברו ל-Wi-Fi'); finish('ended'); } }, 8000); }
     };
     return pc;
   }
@@ -67,13 +71,16 @@ export function CallManager(rtc, ui) {
     cur.status = 'ringing'; ui.update();
     cur.unsubs.push(onSnapshot(ref, s => {
       const d = s.data(); if (!d || !cur) return;
-      if (d.answer && !pc.currentRemoteDescription) pc.setRemoteDescription(new RTCSessionDescription(d.answer)).catch(() => {});
+      if (d.answer && !pc.currentRemoteDescription && !cur.answering) { cur.answering = true; pc.setRemoteDescription(new RTCSessionDescription(d.answer)).then(() => { const q = (cur && cur.pending) || []; if (cur) cur.pending = null; q.forEach(c => pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {})); }).catch(() => {}); }
       if (d.status === 'accepted' && cur.status === 'ringing') { cur.status = 'connecting'; clearTimeout(cur.ringTimer); ui.update(); }
       if (d.status === 'declined') { ui.toast('השיחה נדחתה'); finish('declined', true); }
       if (d.status === 'ended') finish('ended', true);
     }));
+    cur.pending = [];
     cur.unsubs.push(onSnapshot(collection(ref, 'toCandidates'), s => s.docChanges().forEach(ch => {
-      if (ch.type === 'added') pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(() => {});
+      if (ch.type !== 'added' || !cur) return;
+      if (!pc.currentRemoteDescription) { (cur.pending = cur.pending || []).push(ch.doc.data()); return; }
+      pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(() => {});
     })));
     cur.ringTimer = setTimeout(() => { if (cur && cur.status === 'ringing') { ui.toast('אין מענה'); finish('missed'); } }, RING_MS);
   }

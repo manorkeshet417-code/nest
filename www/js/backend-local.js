@@ -25,6 +25,8 @@ export function LocalBackend() {
     onAuth(cb) { authCb = cb; setTimeout(() => cb(me.name ? copy(me) : null), 150); return () => {}; },
     async signIn(name) { me.name = name; LS.set('nest.localName', name); authCb && authCb(copy(me)); },
     async signOut() { me.name = ''; LS.set('nest.localName', ''); authCb && authCb(null); },
+    async sosContacts() { return LS.get('nest.sos') || []; },
+    async saveSos(list) { LS.set('nest.sos', list); },
     async saveProfile(o) { Object.assign(me, o); LS.set('nest.localName', me.name); LS.set('nest.localBirthday', me.birthday || ''); emit('groups'); },
     async users(ids) { const o = {}; ids.forEach(i => o[i] = i === 'me' ? copy(me) : { id: i, name: '' }); return o; },
 
@@ -65,7 +67,7 @@ export function LocalBackend() {
     async deleteList(gid, lid) { box(gid).lists = box(gid).lists.filter(x => x.id !== lid); emit(gid + ':lists'); },
 
     watchMessages(s, cb) { if (s.t !== 'g') return () => {}; return on(s.id + ':messages', () => cb(box(s.id).messages.slice().sort(sort.messages).map(copy))); },
-    async sendMessage(s, m) { if (s.t !== 'g') noSite(); m = copy(m); if (m.video && m.video.data) { const vid = id(); blobs[vid] = m.video.data; m.video = { id: vid, chunks: 1, thumb: m.video.thumb, dur: m.video.dur, w: m.video.w, h: m.video.h, mime: m.video.mime }; } box(s.id).messages.push(Object.assign({ id: id(), authorId: 'me', createdAt: Date.now(), reactions: {} }, m)); emit(s.id + ':messages'); touch(s.id, `${me.name}: ${m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : '🎤 הודעה קולית')}`); },
+    async sendMessage(s, m) { if (s.t !== 'g') noSite(); m = copy(m); if (m.video && m.video.data) { const vid = id(); blobs[vid] = m.video.data; m.video = { id: vid, chunks: 1, thumb: m.video.thumb, dur: m.video.dur, w: m.video.w, h: m.video.h, mime: m.video.mime }; } box(s.id).messages.push(Object.assign({ id: id(), authorId: 'me', createdAt: Date.now(), reactions: {} }, m)); emit(s.id + ':messages'); touch(s.id, `${me.name}: ${m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : '🎤 הודעה קולית')}`); },
     async react(s, mid, emoji) { const m = box(s.id).messages.find(x => x.id === mid); if (m) { if (emoji) m.reactions.me = emoji; else delete m.reactions.me; emit(s.id + ':messages'); } },
     async deleteMessage(s, m) { box(s.id).messages = box(s.id).messages.filter(x => x.id !== m.id); emit(s.id + ':messages'); },
     async loadVideo(s, v) { return blobs[v.id] || ''; },
