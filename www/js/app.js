@@ -267,6 +267,7 @@ function birthdaysToday() {
 function viewGroups() {
   const u = S.user, list = S.groups, bdays = birthdaysToday();
   return bar({ title: 'קבוצות', eyebrow: local() ? '<span class="pill">תצוגה מקדימה</span>' : '', trail: `<button class="nb-btn" data-a="new-group" aria-label="קבוצה חדשה">${icon('plus', 24, 2.2)}</button>` }) +
+  (canOfferInstall() && !LS.get('nest.noInstall') ? `<div class="tip">${icon('sparkles', 24)}<span class="body"><b>התקינו את Nest</b><br><span style="color:var(--label2);font-size:13px">${inAppBrowser() ? 'פתחו בדפדפן Chrome כדי להתקין' : 'אייקון במסך הבית, מסך מלא, עובד גם בלי אינטרנט'}</span></span><button class="btn filled sm" data-a="install">התקנה</button><button class="icon-btn muted sm" data-a="install-hide" aria-label="סגירה">${icon('xmark', 16)}</button></div>` : '') +
   bdays.map(b => `<div class="tip bday">${icon('cake', 26)}<span class="body">${b.id === u.id ? '<b>יום הולדת שמח!</b> כל המשפחה חוגגת איתך 🎉' : `<b>היום יום ההולדת של ${esc(nameOf(b))}</b> 🎂`}</span>${b.id !== u.id && !local() ? `<button class="btn filled sm" data-a="dm" data-v="${esc(b.id)}">ברכה</button>` : ''}</div>`).join('') +
   (list.length ? `<div class="list av" style="--inset:80px">${list.map(g => { const un = groupUnread(g); return `<button class="row" data-a="open" data-v="${esc(g.id)}" style="padding:10px 16px">${gtile(g)}<span class="body"><span class="t" style="font-weight:600">${esc(g.name)}${g.ownerId === u.id ? '<span class="badge">בעלים</span>' : ''}</span><span class="sub" dir="auto">${esc(g.lastMessage || `${g.members.length} חברים`)}</span></span><span class="when${un ? ' un' : ''}">${g.lastAt ? listTime(g.lastAt) : ''}${un ? '<span class="udot"></span>' : ''}</span></button>`; }).join('')}</div>`
   : `<div class="empty">${icon('house', 56, 1.4)}<b>עוד אין קבוצות</b><span>פתחו קבוצה למשפחה, או הצטרפו לקבוצה קיימת עם קוד הזמנה.</span></div>`) +
@@ -298,6 +299,15 @@ async function startDM(uid) {
 /* ---------- root: profile ---------- */
 let installEvt = null;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// In-app browsers (the Google app, WhatsApp, Instagram, Facebook…) cannot install web apps at all
+const inAppBrowser = () => /GSA\/|FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|; wv\)/i.test(navigator.userAgent);
+const canOfferInstall = () => onSite && !standalone();
+function installHelp() {
+  const link = location.origin + location.pathname;
+  if (inAppBrowser()) return { title: 'צריך לפתוח בדפדפן', msg: 'האפליקציה פתוחה עכשיו בתוך אפליקציה אחרת (גוגל, וואטסאפ או אינסטגרם), ומשם אי אפשר להתקין. פתחו את התפריט (⋮ או ···) ובחרו "פתיחה ב-Chrome"' + (isIOS() ? ' או "פתיחה ב-Safari"' : '') + '. אפשר גם להעתיק את הקישור ולהדביק אותו בדפדפן.', link };
+  if (isIOS()) return { title: 'הוספה למסך הבית', msg: 'הקישו על כפתור השיתוף (ריבוע עם חץ למעלה; ב-Chrome הוא בשורת הכתובת), גללו ובחרו "הוספה למסך הבית", ואז "הוסף".', link };
+  return { title: 'התקנת Nest', msg: 'ב-Chrome: הקישו על ⋮ בפינה העליונה ובחרו "התקנת אפליקציה" או "הוספה למסך הבית". אם האפשרות לא מופיעה, רעננו את הדף ונסו שוב בעוד רגע.', link };
+}
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!S.booting && !typing()) softRender(); });
 window.addEventListener('appinstalled', () => { installEvt = null; hud('Nest נוספה למסך הבית'); softRender(); });
 function viewProfile() {
@@ -313,7 +323,7 @@ function viewProfile() {
   <div class="section-h">התראות</div>
   <div class="list"><div class="row">${icon('bell', 22)}<span class="body t">התראות על הודעות ושיחות</span>${perm === 'granted' ? '<span class="val">פעילות</span>' : perm === 'denied' ? '<span class="val">חסומות</span>' : perm === 'unsupported' ? '<span class="val">לא נתמך</span>' : '<button class="btn tinted sm" data-a="notif">הפעלה</button>'}</div></div>
   <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : 'ההתראות מגיעות כשהאפליקציה פתוחה ברקע.'}</p>
-  ${onSite && !standalone() && (installEvt || isIOS()) ? `<div class="section-h"></div><div class="list"><button class="row" data-a="install">${icon('sparkles', 22)}<span class="body t">הוספה למסך הבית</span><span class="chev">${icon('chev', 16)}</span></button></div>` : ''}
+  ${canOfferInstall() ? `<div class="section-h"></div><div class="list"><button class="row" data-a="install">${icon('sparkles', 22)}<span class="body t">הוספה למסך הבית</span><span class="chev">${icon('chev', 16)}</span></button></div>` : ''}
   <div class="section-h"></div><div class="list"><button class="row red" data-a="sign-out">התנתקות</button></div>
   <p class="section-f" style="text-align:center;padding-top:20px">Nest · הרשת של המשפחה</p>`;
 }
@@ -1016,7 +1026,13 @@ const A = {
   'leave-group': async () => { const g = group(); if (await confirmSheet({ title: `לצאת מ"${g.name}"?`, msg: 'כדי לחזור תצטרכו קוד הזמנה חדש.', actions: [{ label: 'יציאה מהקבוצה', destructive: true }] }) === 0) { try { await be.leaveGroup(g.id); go('root'); hud('יצאת מהקבוצה'); } catch (e) { fail(e); } } },
   'sign-out': async () => { if (await confirmSheet({ title: 'להתנתק?', msg: be.mode === 'live' ? 'הקבוצות והשיחות שלך נשארות. אפשר להיכנס שוב עם Google.' : 'בתצוגה המקדימה הכול יתחיל מחדש.', actions: [{ label: 'התנתקות' }] }) === 0) { stopAll(); await be.signOut(); } },
   notif: async () => { try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
-  install: async () => { if (installEvt) { const e = installEvt; e.prompt(); try { await e.userChoice; } catch (x) {} installEvt = null; render(); return; } await confirmSheet({ title: 'הוספה למסך הבית', msg: 'ב-Safari הקישו על כפתור השיתוף (ריבוע עם חץ למעלה), גללו ובחרו "הוספה למסך הבית".', actions: [{ label: 'הבנתי' }] }); },
+  install: async () => {
+    if (installEvt) { const e = installEvt; e.prompt(); try { const c = await e.userChoice; if (c && c.outcome === 'accepted') LS.set('nest.noInstall', 1); } catch (x) {} installEvt = null; render(); return; }
+    const h = installHelp();
+    const r = await confirmSheet({ title: h.title, msg: h.msg, actions: [{ label: 'העתקת הקישור' }, { label: 'הבנתי' }] });
+    if (r === 0) copyText(h.link);
+  },
+  'install-hide': () => { LS.set('nest.noInstall', 1); render(); },
   // chat
   react: async b => { const m = msgById(b.dataset.v); if (!m) return; const mine = (m.reactions || {})[me()]; haptic(); try { await be.react(scope(), m.id, mine === b.dataset.e ? null : b.dataset.e); } catch (e) { fail(e); } },
   jump: b => { const el = document.getElementById('m-' + b.dataset.v); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } },
