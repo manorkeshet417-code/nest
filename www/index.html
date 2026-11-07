@@ -1,4 +1,4 @@
-<title>קן</title>
+<title>Nest</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -293,14 +293,22 @@ button.row:active{background:var(--fill2)}
     <div id="sheet"></div>
     <div class="hud" id="hud" role="status" aria-live="polite"></div>
   </div>
-  <p class="stage-note">תצוגת iPhone של קן, במצב דמו עם משפחה לדוגמה.</p>
+  <p class="stage-note">תצוגת iPhone של Nest. בתצוגה הזו הנתונים נשמרים רק בדף הזה.</p>
 </div>
 <input type="file" id="file" accept="image/*" hidden>
 
 <script type="module">
 'use strict';
-// Firebase web config (Firebase console > Project settings > Your apps). null = demo mode only.
-const FIREBASE_CONFIG = null;
+// Firebase web config (Firebase console > Project settings > Your apps). These values are public;
+// firestore.rules is what protects the data. Off the website (e.g. the Claude preview) the app runs locally.
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyDkGS4U9-2hugToYYNvAEzUdMC6gXhjkAI',
+  authDomain: 'nest-family-d163e.firebaseapp.com',
+  projectId: 'nest-family-d163e',
+  storageBucket: 'nest-family-d163e.firebasestorage.app',
+  messagingSenderId: '706079879278',
+  appId: '1:706079879278:web:571f2795a863deeecd767f'
+};
 
 const root=document.documentElement;root.lang='he';root.dir='rtl';
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
@@ -388,69 +396,26 @@ function shrink(img,max,q){
 async function prepImage(file){const img=await loadImg(file);return {full:shrink(img,1600,.8),thumb:shrink(img,420,.72)}}
 
 /* ======================================================================
-   Backends: the same API, served by Firebase (live) or in memory (demo)
+   Backends: the same API, served by Firebase (live) or kept in this page only (local preview)
    ====================================================================== */
-function demoPhoto(sky1,sky2,hill,sun,w,h){
-  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
-  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,sky1);g.addColorStop(1,sky2);x.fillStyle=g;x.fillRect(0,0,w,h);
-  x.fillStyle=sun;x.beginPath();x.arc(w*.68,h*.38,h*.12,0,7);x.fill();
-  [[hill,.62,.09],[hill,.74,.06]].forEach(([col,base,amp],i)=>{x.globalAlpha=i?1:.6;x.fillStyle=col;x.beginPath();x.moveTo(0,h);for(let X=0;X<=w;X+=8)x.lineTo(X,h*base+Math.sin(X/w*6+i*2)*h*amp);x.lineTo(w,h);x.fill()});
-  x.globalAlpha=1;return c.toDataURL('image/jpeg',.82);
-}
-function DemoBackend(){
-  const now=Date.now(),H=36e5,D=864e5,me={id:'me',name:LS.get('ken.demoName')||'',photo:''};
-  const users={me:me,u1:{id:'u1',name:'סבתא רותי'},u2:{id:'u2',name:'אבא דני'},u3:{id:'u3',name:'מאיה'},u4:{id:'u4',name:'יואב'},u5:{id:'u5',name:'דודה נעמה'}};
+function LocalBackend(){
+  const me={id:'me',name:LS.get('nest.localName')||'',photo:''};
   const groups={},sub={},L=new Map();
-  let uid=0;const id=()=>'d'+(++uid)+Math.random().toString(36).slice(2,6);
+  let uid=0;const id=()=>'l'+(++uid)+Math.random().toString(36).slice(2,6);
   const emit=k=>{const s=L.get(k);if(s)s.forEach(f=>f())};
   const on=(k,f)=>{if(!L.has(k))L.set(k,new Set());L.get(k).add(f);f();return ()=>L.get(k).delete(f)};
   const box=gid=>sub[gid]||(sub[gid]={posts:[],comments:{},messages:[],events:[],images:[],imageData:{}});
-  const photo=(gid,by,colors,t)=>{const iid=id(),full=demoPhoto(...colors,1200,900),thumb=demoPhoto(...colors,360,270);box(gid).images.unshift({id:iid,by:by,thumb:thumb,w:1200,h:900,createdAt:t});box(gid).imageData[iid]=full;return iid};
   const touch=(gid,text)=>{const g=groups[gid];if(g){g.lastMessage=text.slice(0,80);g.lastAt=Date.now();emit('groups')}};
-  const ymd=d=>{const x=new Date(now+d*D);return iso(x)};
-  // sample family
-  const g1={id:'g1',name:'משפחת כהן',emoji:'🏠',color:'orange',ownerId:'u1',members:['u1','u2','u3','u4','u5','me'],inviteCode:'KEN482',lastMessage:'סבתא רותי: מי מביא סלט?',lastAt:now-20*60e3};
-  const g2={id:'g2',name:'הבית שלנו',emoji:'❤️',color:'blue',ownerId:'me',members:['me','u2','u3','u4'],inviteCode:'HOME27',lastMessage:'יואב: מה אוכלים היום?',lastAt:now-3*H};
-  groups.g1=g1;groups.g2=g2;
-  const b1=box('g1');
-  const cake=photo('g1','u1',['#ffd7a8','#ffb36b','#c96b2c','#fff3c4'],now-5*H);
-  const trip=photo('g1','u4',['#8fd3ff','#d8f1ff','#3f8f4a','#ffffff'],now-D-2*H);
-  photo('g1','u2',['#ff9a62','#ffd29a','#7a3e2a','#fff6d8'],now-3*D);
-  photo('g1','u3',['#4facfe','#b5e8ff','#1d6fa5','#fffbe6'],now-6*D);
-  b1.posts=[
-    {id:'p1',authorId:'u1',text:'אפיתי עוגת שמרים לשבת 🍰 מי בא לטעום?',imageId:cake,createdAt:now-5*H,likes:['u2','u3','u5'],commentCount:2},
-    {id:'p2',authorId:'u3',text:'קיבלתי 100 במבחן במתמטיקה!!',imageId:'',createdAt:now-9*H,likes:['u1','u2','u4','u5'],commentCount:1},
-    {id:'p3',authorId:'u4',text:'נוף מהטיול בגליל היום. חייבים לחזור לשם כולנו ביחד.',imageId:trip,createdAt:now-D-2*H,likes:['u1'],commentCount:0}
-  ];
-  b1.comments={p1:[{id:'c1',authorId:'u2',text:'אנחנו באים! שמרי לי חתיכה',createdAt:now-4*H},{id:'c2',authorId:'u5',text:'נראה מדהים ❤️',createdAt:now-3*H}],p2:[{id:'c3',authorId:'u1',text:'כל הכבוד מאיוש! גאה בך',createdAt:now-8*H}],p3:[]};
-  b1.messages=[
-    {id:'m1',authorId:'u2',text:'בוקר טוב משפחה ☀️',createdAt:now-D-3*H},
-    {id:'m2',authorId:'u1',text:'בוקר אור! מי מגיע בשישי?',createdAt:now-D-2.8*H},
-    {id:'m3',authorId:'me',text:'אנחנו מגיעים',createdAt:now-D-2.5*H},
-    {id:'m4',authorId:'u5',text:'גם אנחנו, נביא קינוח',createdAt:now-2*H},
-    {id:'m5',authorId:'u1',text:'מי מביא סלט?',createdAt:now-20*60e3}
-  ].reverse();
-  b1.events=[
-    {id:'e1',title:'ארוחת שישי אצל סבתא',date:ymd(2),time:'19:30',place:'אצל סבתא רותי, חיפה',createdBy:'u1',rsvp:{u1:'yes',u2:'yes',u5:'yes',u4:'maybe'},createdAt:now-2*D},
-    {id:'e2',title:'יום הולדת 80 לסבתא 🎂',date:ymd(19),time:'12:00',place:'גן אירועים הדקל',createdBy:'u2',rsvp:{u2:'yes',u3:'yes'},createdAt:now-5*D},
-    {id:'e3',title:'פיקניק בפארק',date:ymd(-6),time:'10:00',place:'פארק הירקון',createdBy:'u5',rsvp:{u5:'yes',me:'yes'},createdAt:now-12*D}
-  ];
-  const b2=box('g2');
-  b2.messages=[{id:'m6',authorId:'u3',text:'אמא, איפה המטען שלי?',createdAt:now-5*H},{id:'m7',authorId:'u4',text:'מה אוכלים היום?',createdAt:now-3*H}];
-  b2.posts=[{id:'p4',authorId:'u2',text:'תזכורת: מחר אוספים את הסבים מהרכבת ב-10.',imageId:'',createdAt:now-6*H,likes:['me'],commentCount:0}];
-  b2.comments={p4:[]};
-  b2.events=[{id:'e4',title:'אסיפת הורים',date:ymd(4),time:'18:00',place:'בית הספר',createdBy:'me',rsvp:{me:'yes',u2:'maybe'},createdAt:now-D}];
-  const replies=['❤️','איזה כיף!','נתראה בשישי','סבבה 👍','מתגעגעת אליכם','חחחח','אני בדרך'];
   const sort={posts:(a,b)=>b.createdAt-a.createdAt,messages:(a,b)=>b.createdAt-a.createdAt,images:(a,b)=>b.createdAt-a.createdAt,events:(a,b)=>a.date<b.date?-1:a.date>b.date?1:0};
   const copy=x=>JSON.parse(JSON.stringify(x));
   let authCb=null;
   return {
-    mode:'demo',
-    onAuth(cb){authCb=cb;setTimeout(()=>cb(me.name?copy(me):null),250);return ()=>{}},
-    async signIn(name){me.name=name;LS.set('ken.demoName',name);authCb&&authCb(copy(me))},
-    async signOut(){me.name='';LS.set('ken.demoName','');authCb&&authCb(null)},
-    async saveProfile(o){Object.assign(me,o);LS.set('ken.demoName',me.name);emit('groups')},
-    async users(ids){const o={};ids.forEach(i=>o[i]=copy(users[i]||{id:i,name:''}));return o},
+    mode:'local',
+    onAuth(cb){authCb=cb;setTimeout(()=>cb(me.name?copy(me):null),150);return ()=>{}},
+    async signIn(name){me.name=name;LS.set('nest.localName',name);authCb&&authCb(copy(me))},
+    async signOut(){me.name='';LS.set('nest.localName','');authCb&&authCb(null)},
+    async saveProfile(o){Object.assign(me,o);LS.set('nest.localName',me.name);emit('groups')},
+    async users(ids){const o={};ids.forEach(i=>o[i]=i==='me'?copy(me):{id:i,name:''});return o},
     watchGroups(cb){return on('groups',()=>cb(Object.values(groups).filter(g=>g.members.includes('me')).map(copy)))},
     async createGroup(o){const gid=id();groups[gid]={id:gid,name:o.name,emoji:o.emoji,color:o.color,ownerId:'me',members:['me'],inviteCode:newCode(),lastMessage:'',lastAt:Date.now()};box(gid);emit('groups');return gid},
     async findInvite(code){const g=Object.values(groups).find(x=>x.inviteCode===code);return g?{groupId:g.id,groupName:g.name,emoji:g.emoji,color:g.color}:null},
@@ -469,8 +434,7 @@ function DemoBackend(){
     async deletePost(gid,p){const b=box(gid);b.posts=b.posts.filter(q=>q.id!==p.id);if(p.imageId){b.images=b.images.filter(i=>i.id!==p.imageId);emit(gid+':images')}emit(gid+':posts')},
     async addComment(gid,pid,text){const b=box(gid);(b.comments[pid]=b.comments[pid]||[]).push({id:id(),authorId:'me',text:text,createdAt:Date.now()});const p=b.posts.find(q=>q.id===pid);if(p)p.commentCount++;emit(gid+':c:'+pid);emit(gid+':posts')},
     async deleteComment(gid,pid,cid){const b=box(gid);b.comments[pid]=(b.comments[pid]||[]).filter(c=>c.id!==cid);const p=b.posts.find(q=>q.id===pid);if(p)p.commentCount=Math.max(0,p.commentCount-1);emit(gid+':c:'+pid);emit(gid+':posts')},
-    async sendMessage(gid,text){box(gid).messages.push({id:id(),authorId:'me',text:text,createdAt:Date.now()});emit(gid+':messages');touch(gid,`${me.name}: ${text}`);
-      const others=groups[gid].members.filter(m=>m!=='me');if(others.length&&Math.random()<.7)setTimeout(()=>{const a=others[Math.floor(Math.random()*others.length)],t=replies[Math.floor(Math.random()*replies.length)];box(gid).messages.push({id:id(),authorId:a,text:t,createdAt:Date.now()});emit(gid+':messages');touch(gid,`${nameOf(users[a])}: ${t}`)},1600)},
+    async sendMessage(gid,text){box(gid).messages.push({id:id(),authorId:'me',text:text,createdAt:Date.now()});emit(gid+':messages');touch(gid,`${me.name}: ${text}`)},
     async addEvent(gid,o){box(gid).events.push(Object.assign({id:id(),createdBy:'me',rsvp:{me:'yes'},createdAt:Date.now()},o));emit(gid+':events');touch(gid,`${me.name} הוסיף/ה אירוע: ${o.title}`)},
     async rsvp(gid,eid,v){const e=box(gid).events.find(x=>x.id===eid);if(e){e.rsvp.me=v;emit(gid+':events')}},
     async deleteEvent(gid,eid){box(gid).events=box(gid).events.filter(x=>x.id!==eid);emit(gid+':events')},
@@ -542,7 +506,7 @@ async function LiveBackend(cfg){
 let be=null;
 const S={booting:true,user:null,groups:[],screen:'groups',gid:null,tab:'feed',data:{posts:[],messages:[],events:[],images:[]},members:{},
   drafts:{},img:null,busy:false,comments:null,viewer:null,anim:'',joinCode:params.get('join')||''};
-const full={};let unsubGroups=null,unsubGroup=[],unsubComments=null,loadedFull=new Set(),seenMsgs=LS.get('ken.seen')||{};
+const full={};let unsubGroups=null,unsubGroup=[],unsubComments=null,loadedFull=new Set(),seenMsgs=LS.get('nest.seen')||{};
 const group=()=>S.groups.find(g=>g.id===S.gid);
 const isOwner=g=>g&&S.user&&g.ownerId===S.user.id;
 const scrollY=()=>isFrame()?screenEl.scrollTop:window.scrollY;
@@ -615,7 +579,7 @@ function openGroup(gid){
   const g=group();if(g)loadMembers(g).then(()=>softRender());
 }
 function closeGroup(){unsubGroup.forEach(u=>{try{u()}catch(e){}});unsubGroup=[];S.gid=null;S.data={posts:[],messages:[],events:[],images:[]}}
-function markSeen(){const m=S.data.messages[0];if(m&&S.gid){seenMsgs[S.gid]=m.createdAt;LS.set('ken.seen',seenMsgs)}}
+function markSeen(){const m=S.data.messages[0];if(m&&S.gid){seenMsgs[S.gid]=m.createdAt;LS.set('nest.seen',seenMsgs)}}
 const unread=()=>{const last=seenMsgs[S.gid]||0;return S.data.messages.filter(m=>m.createdAt>last&&m.authorId!==(S.user&&S.user.id)).length};
 
 /* ---------- render ---------- */
@@ -661,7 +625,7 @@ function viewLogin(){
   const live=be.mode==='live';
   return `<div class="onb">
     <div class="app-icon">${icon('house',56,1.7)}</div>
-    <h1>קן</h1>
+    <h1 dir="ltr">Nest</h1>
     <p class="lead">הרשת הפרטית של המשפחה שלך. רק מי שהזמנתם רואה.</p>
   </div>
   <div class="features">
@@ -671,16 +635,15 @@ function viewLogin(){
     <div class="feature"><span class="fi">${icon('lock',30)}</span><div><b>קבוצות פרטיות</b><span>פותחים קבוצה ומצרפים את המשפחה עם קוד.</span></div></div>
   </div>
   ${live?`<div class="btn-row"><button class="btn filled block" data-a="google">המשך עם Google</button></div>
-    <p class="section-f" style="text-align:center">נכנסים עם חשבון Google. אנחנו שומרים רק שם ותמונת פרופיל.</p>
-    <p class="section-f" style="text-align:center"><a href="?demo" style="color:var(--accent)">לצפייה בדמו עם משפחה לדוגמה</a></p>`
-  :`<form id="demo-login"><div class="section-h">איך קוראים לך?</div><div class="list"><div class="field"><input id="demo-name" autocomplete="given-name" placeholder="השם שלך" aria-label="השם שלך" autofocus></div></div>
-    <div class="btn-row"><button class="btn filled block">כניסה לדמו</button></div>
-    <p class="section-f" style="text-align:center">זה מצב דמו עם משפחה לדוגמה. שום דבר לא נשמר.</p></form>`}`;
+    <p class="section-f" style="text-align:center">נכנסים עם חשבון Google. אנחנו שומרים רק שם ותמונת פרופיל.</p>`
+  :`<form id="local-login"><div class="section-h">איך קוראים לך?</div><div class="list"><div class="field"><input id="local-name" autocomplete="given-name" placeholder="השם שלך" aria-label="השם שלך" autofocus></div></div>
+    <div class="btn-row"><button class="btn filled block">כניסה</button></div>
+    <p class="section-f" style="text-align:center">זו תצוגה מקדימה: הנתונים נשמרים רק בדף הזה. באתר נכנסים עם Google והכול נשמר לכל המשפחה.</p></form>`}`;
 }
 
 function viewGroups(){
   const u=S.user,list=S.groups;
-  return bar({title:'הקבוצות שלי',eyebrow:be.mode==='demo'?'<span class="pill">מצב דמו</span>':'',trail:`<button class="nb-btn" data-a="profile" aria-label="פרופיל">${avatar(u,30)}</button>`})+
+  return bar({title:'הקבוצות שלי',eyebrow:be.mode==='local'?'<span class="pill">תצוגה מקדימה</span>':'',trail:`<button class="nb-btn" data-a="profile" aria-label="פרופיל">${avatar(u,30)}</button>`})+
   (list.length?`<div class="list av" style="--inset:80px">${list.map(g=>`<button class="row" data-a="open" data-v="${esc(g.id)}" style="padding:10px 16px">${gtile(g)}<span class="body"><span class="t" style="font-weight:600">${esc(g.name)}${g.ownerId===u.id?'<span class="badge">בעלים</span>':''}</span><span class="sub" dir="auto">${esc(g.lastMessage||`${g.members.length} חברים`)}</span></span><span class="val">${g.lastAt?ago(g.lastAt):''}</span></button>`).join('')}</div>`
   :`<div class="empty">${icon('house',56,1.4)}<b>עוד אין קבוצות</b><span>פתחו קבוצה למשפחה, או הצטרפו לקבוצה קיימת עם קוד הזמנה.</span></div>`)+
   `<div class="btn-row"><button class="btn filled" data-a="new-group">${icon('plus',18,2.4)} קבוצה חדשה</button><button class="btn tinted" data-a="join">${icon('key',18)} הצטרפות עם קוד</button></div>`;
@@ -759,11 +722,11 @@ function viewMembers(g){
 function viewProfile(){
   const u=S.user;
   return bar({title:'פרופיל',back:'קבוצות'})+
-  `<div class="list"><div class="row" style="padding:16px">${avatar(u,64)}<span class="body"><span class="t" style="font-size:22px;font-weight:600">${esc(nameOf(u))}</span><span class="sub">${be.mode==='live'?'מחובר/ת עם Google':'מצב דמו'}</span></span></div></div>
+  `<div class="list"><div class="row" style="padding:16px">${avatar(u,64)}<span class="body"><span class="t" style="font-size:22px;font-weight:600">${esc(nameOf(u))}</span><span class="sub">${be.mode==='live'?'מחובר/ת עם Google':'תצוגה מקדימה'}</span></span></div></div>
   <div class="section-h">השם שמוצג למשפחה</div>
   <form id="name-form" class="list"><div class="field"><input id="pf-name" value="${esc(u.name)}" aria-label="השם שלך" maxlength="40"><button class="btn tinted sm">שמירה</button></div></form>
   <div class="section-h"></div><div class="list"><button class="row red" data-a="sign-out">התנתקות</button></div>
-  <p class="section-f" style="text-align:center;padding-top:20px">קן · הרשת של המשפחה</p>`;
+  <p class="section-f" style="text-align:center;padding-top:20px">Nest · הרשת של המשפחה</p>`;
 }
 
 /* ---------- photos: full size loads after the thumbnail ---------- */
@@ -822,7 +785,7 @@ function groupForm(g){
 function joinForm(code){
   let found=null;
   const fs=formSheet({title:'הצטרפות לקבוצה',action:'הצטרפות',
-    body:`<div class="section-h">קוד הזמנה</div><div class="list"><div class="field"><input id="jf-code" maxlength="6" placeholder="למשל KEN482" value="${esc(code||'')}" aria-label="קוד הזמנה" autocapitalize="characters" autocomplete="off" spellcheck="false" dir="ltr" style="text-align:left;letter-spacing:.15em;font-weight:600" autofocus></div></div>
+    body:`<div class="section-h">קוד הזמנה</div><div class="list"><div class="field"><input id="jf-code" maxlength="6" placeholder="6 תווים" value="${esc(code||'')}" aria-label="קוד הזמנה" autocapitalize="characters" autocomplete="off" spellcheck="false" dir="ltr" style="text-align:left;letter-spacing:.15em;font-weight:600" autofocus></div></div>
       <p class="section-f">את הקוד מקבלים ממי שפתח את הקבוצה, במסך "חברים".</p><div id="jf-res" style="margin-top:16px"></div>`,
     async onOk(f){
       if(!found){await look();if(!found)return false}
@@ -883,18 +846,18 @@ const A={
   'new-event':()=>eventForm(),
   'event-menu':async b=>{const e=S.data.events.find(x=>x.id===b.dataset.v);if(!e)return;
     if(await confirmSheet({title:e.title,actions:[{label:'מחיקת האירוע',destructive:true}]})===0){try{await be.deleteEvent(S.gid,e.id);hud('האירוע נמחק')}catch(x){fail(x)}}},
-  'share-invite':async()=>{const g=group(),url=inviteLink(g),text=`הצטרפו לקבוצה "${g.name}" בקן. קוד ההזמנה: ${g.inviteCode}`;
-    if(navigator.share){try{await navigator.share({title:'הזמנה לקן',text:text,url:url});return}catch(e){if(e&&e.name==='AbortError')return}}copyText(text+'\n'+url)},
+  'share-invite':async()=>{const g=group(),url=inviteLink(g),text=`הצטרפו לקבוצה "${g.name}" ב-Nest. קוד ההזמנה: ${g.inviteCode}`;
+    if(navigator.share){try{await navigator.share({title:'הזמנה ל-Nest',text:text,url:url});return}catch(e){if(e&&e.name==='AbortError')return}}copyText(text+'\n'+url)},
   'copy-invite':()=>{const g=group();copyText(inviteLink(g))},
   'member-menu':async b=>{const g=group(),m=S.members[b.dataset.v]||{};
     if(await confirmSheet({title:nameOf(m),msg:'הוצאה מהקבוצה מבטלת את הגישה שלו/ה לפיד, לצ׳אט ולאלבום.',actions:[{label:'הוצאה מהקבוצה',destructive:true}]})===0){try{await be.removeMember(g.id,b.dataset.v);hud(`${first(nameOf(m))} הוצא/ה מהקבוצה`)}catch(e){fail(e)}}},
   'new-code':async()=>{const g=group();if(await confirmSheet({title:'להחליף את קוד ההזמנה?',msg:'הקישור הישן יפסיק לעבוד.',actions:[{label:'החלפת הקוד'}]})===0){try{await be.newInviteCode(g);hud('קוד חדש נוצר')}catch(e){fail(e)}}},
   'delete-group':async()=>{const g=group();if(await confirmSheet({title:`למחוק את "${g.name}"?`,msg:'הקבוצה תיעלם לכל החברים, עם הפיד, הצ׳אט, האירועים והאלבום. אי אפשר לבטל.',actions:[{label:'מחיקת הקבוצה',destructive:true}]})===0){try{await be.deleteGroup(g);go('groups');hud('הקבוצה נמחקה')}catch(e){fail(e)}}},
   'leave-group':async()=>{const g=group();if(await confirmSheet({title:`לצאת מ"${g.name}"?`,msg:'כדי לחזור תצטרכו קוד הזמנה חדש.',actions:[{label:'יציאה מהקבוצה',destructive:true}]})===0){try{await be.leaveGroup(g.id);go('groups');hud('יצאת מהקבוצה')}catch(e){fail(e)}}},
-  'sign-out':async()=>{if(await confirmSheet({title:'להתנתק?',msg:be.mode==='live'?'הקבוצות שלך נשארות. אפשר להיכנס שוב עם Google.':'במצב דמו הכול יתחיל מחדש.',actions:[{label:'התנתקות'}]})===0){closeGroup();if(unsubGroups)unsubGroups();unsubGroups=null;await be.signOut()}}
+  'sign-out':async()=>{if(await confirmSheet({title:'להתנתק?',msg:be.mode==='live'?'הקבוצות שלך נשארות. אפשר להיכנס שוב עם Google.':'בתצוגה המקדימה הכול יתחיל מחדש.',actions:[{label:'התנתקות'}]})===0){closeGroup();if(unsubGroups)unsubGroups();unsubGroups=null;await be.signOut()}}
 };
 const F={
-  'demo-login':async()=>{const n=$('#demo-name').value.trim();if(!n){$('#demo-name').focus();hud('כתבו את השם שלכם',true);return}await be.signIn(n)},
+  'local-login':async()=>{const n=$('#local-name').value.trim();if(!n){$('#local-name').focus();hud('כתבו את השם שלכם',true);return}await be.signIn(n)},
   'post-form':async()=>{const text=(S.drafts.post||'').trim();if(!text&&!S.img)return;S.busy=true;updateSend();render();
     try{await be.addPost(S.gid,{text:text,image:S.img});S.drafts.post='';S.img=null;haptic(12);hud('פורסם')}catch(e){fail(e)}finally{S.busy=false;render()}},
   'chat-form':async()=>{const t=(S.drafts.chat||'').trim();if(!t)return;S.drafts.chat='';const el=$('#chat-in');if(el){el.value='';grow(el)}updateSend();
@@ -927,8 +890,8 @@ if(onSite&&'serviceWorker' in navigator){try{navigator.serviceWorker.register('.
 /* ---------- boot ---------- */
 async function boot(){
   render(true);
-  const live=FIREBASE_CONFIG&&onSite&&!params.has('demo');
-  try{be=live?await LiveBackend(FIREBASE_CONFIG):DemoBackend()}catch(e){console.error(e);be=DemoBackend();hud('לא הצלחנו להתחבר לשרת. מציגים דמו.',true)}
+  const live=FIREBASE_CONFIG&&onSite;
+  try{be=live?await LiveBackend(FIREBASE_CONFIG):LocalBackend()}catch(e){console.error(e);be=LocalBackend();hud('לא הצלחנו להתחבר לשרת. בדקו את החיבור ונסו שוב.',true)}
   be.onAuth(u=>{
     S.booting=false;S.user=u;
     if(!u){closeGroup();if(unsubGroups)unsubGroups();unsubGroups=null;S.groups=[];S.screen='groups';S.anim='fade';render(true);return}

@@ -1,13 +1,15 @@
-# קן
+# Nest
 
-רשת חברתית פרטית למשפחה. נכנסים עם Google, פותחים קבוצה (את/ה הבעלים), ומצרפים את המשפחה עם קוד או קישור.
+רשת חברתית פרטית למשפחה: **https://manorkeshet417-code.github.io/nest/**
+
+נכנסים עם Google, פותחים קבוצה (את/ה הבעלים), ומצרפים את המשפחה עם קוד או קישור.
 
 בכל קבוצה:
 - **פיד**: פוסטים ותמונות, לייקים ותגובות
 - **צ׳אט**: הודעות בזמן אמת
 - **אירועים**: ארוחות שישי, ימי הולדת ומפגשים, עם אישור הגעה
 - **אלבום**: כל התמונות של הקבוצה במקום אחד
-- **חברים**: קוד הזמנה, ובעלי הקבוצה יכולים להוציא חברים, להחליף קוד ולמחוק את הקבוצה
+- **חברים**: קוד הזמנה. בעלי הקבוצה יכולים להוציא חברים, להחליף קוד ולמחוק את הקבוצה
 
 אפליקציית ווב (PWA): מתקינים למסך הבית, נפתחת במסך מלא ומתעדכנת לבד.
 
@@ -18,20 +20,16 @@
 - `firestore.rules` – כללי האבטחה של מסד הנתונים: רק חברי קבוצה רואים אותה
 - `.github/workflows/pages.yml` – מפרסם את `www/` ל-GitHub Pages
 
-## מצב דמו
+## Firebase
 
-כש-`FIREBASE_CONFIG` הוא `null`, או כשמוסיפים `?demo` לכתובת, האפליקציה רצה עם משפחה לדוגמה, בלי לשמור כלום.
+פרויקט `nest-family-d163e`:
+- **Authentication**: כניסה עם Google. הדומיין `manorkeshet417-code.github.io` מאושר.
+- **Firestore**: באזור `me-west1` (תל אביב), עם הכללים מ-`firestore.rules`.
 
-## חיבור ל-Firebase (פעם אחת)
+כשמשנים את `firestore.rules`, מדביקים אותו ב-Firebase console → Firestore → Rules ולוחצים Publish.
+הערכים ב-`FIREBASE_CONFIG` אינם סודיים. מי שמגן על הנתונים הם כללי האבטחה.
 
-1. ב-https://console.firebase.google.com יוצרים פרויקט.
-2. **Build → Authentication → Sign-in method**: מפעילים את **Google**.
-3. **Authentication → Settings → Authorized domains**: מוסיפים את `manorkeshet417-code.github.io`.
-4. **Build → Firestore Database → Create database**: בוחרים production mode ואזור באירופה.
-5. **Firestore → Rules**: מדביקים את התוכן של `firestore.rules` ולוחצים Publish.
-6. **Project settings → Your apps → Web (`</>`)**: רושמים אפליקציה, מעתיקים את `firebaseConfig` ל-`FIREBASE_CONFIG` ב-`www/index.html`.
-
-הערכים ב-`firebaseConfig` אינם סודיים. מי שמגן על הנתונים הם כללי האבטחה.
+מחוץ לאתר (למשל בתצוגה המקדימה ב-Claude) האפליקציה רצה במצב מקומי: אין כניסה עם Google והנתונים נשמרים רק בדף.
 
 ## תמונות
 

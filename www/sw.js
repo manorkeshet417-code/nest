@@ -1,6 +1,6 @@
 // Network-first for the app's own files (always revalidated, so updates show on the next launch);
 // the cached copy keeps the app opening offline. Firebase handles its own data caching.
-const CACHE = 'ken-v1';
+const CACHE = 'nest-v1';
 const TIMEOUT = 4000;
 
 self.addEventListener('install', e => {
