@@ -9,7 +9,7 @@ export function LocalBackend() {
   const id = () => 'l' + (++uid) + Math.random().toString(36).slice(2, 6);
   const emit = k => { const s = L.get(k); if (s) s.forEach(f => f()); };
   const on = (k, f) => { if (!L.has(k)) L.set(k, new Set()); L.get(k).add(f); f(); return () => L.get(k).delete(f); };
-  const box = gid => sub[gid] || (sub[gid] = { posts: [], comments: {}, messages: [], events: [], images: [], imageData: {}, lists: [], capsules: [], capsuleBody: {}, quotes: [], days: {}, homework: [], exams: [], timetable: {} });
+  const box = gid => sub[gid] || (sub[gid] = { posts: [], comments: {}, messages: [], events: [], images: [], imageData: {}, lists: [], capsules: [], capsuleBody: {}, quotes: [], days: {}, homework: [], exams: [], timetable: {}, safety: [] });
   const blobs = {};
   const touch = (gid, text) => { const g = groups[gid]; if (g) { g.lastMessage = text.slice(0, 90); g.lastAt = Date.now(); g.lastBy = 'me'; emit('groups'); } };
   const sort = {
@@ -47,6 +47,10 @@ export function LocalBackend() {
     async deleteSchoolItem(gid, kind, iid) { box(gid)[kind] = box(gid)[kind].filter(x => x.id !== iid); emit(gid + ':' + kind); },
     watchTimetable(gid, cb) { return on(gid + ':tt', () => cb(copy(box(gid).timetable))); },
     async saveTimetable(gid, days) { box(gid).timetable = days; emit(gid + ':tt'); },
+    watchSafety(gid, cb) { return on(gid + ':safety', () => cb(copy(box(gid).safety))); },
+    async setSafety(gid, o) { const b = box(gid); b.safety = b.safety.filter(d => d.uid !== 'me').concat([Object.assign({ uid: 'me' }, o, { acks: {} })]); emit(gid + ':safety'); },
+    async updateSafety(gid, p) { const d = box(gid).safety.find(x => x.uid === 'me'); if (d) Object.assign(d, p); emit(gid + ':safety'); },
+    async ackSafety() {},
     watchComments(gid, pid, cb) { return on(gid + ':c:' + pid, () => cb((box(gid).comments[pid] || []).slice().sort((a, b) => a.createdAt - b.createdAt).map(copy))); },
     async addPhoto(gid, img) { const iid = id(); box(gid).images.unshift({ id: iid, by: 'me', thumb: img.thumb.data, w: img.full.w, h: img.full.h, createdAt: Date.now() }); box(gid).imageData[iid] = img.full.data; emit(gid + ':images'); return iid; },
     async addPhotos(gid, imgs) { for (const im of imgs) await this.addPhoto(gid, im); touch(gid, `${me.name} הוסיף/ה ${imgs.length === 1 ? 'תמונה' : imgs.length + ' תמונות'} לאלבום`); },
@@ -73,7 +77,7 @@ export function LocalBackend() {
     async deleteList(gid, lid) { box(gid).lists = box(gid).lists.filter(x => x.id !== lid); emit(gid + ':lists'); },
 
     watchMessages(s, cb) { if (s.t !== 'g') return () => {}; return on(s.id + ':messages', () => cb(box(s.id).messages.slice().sort(sort.messages).map(copy))); },
-    async sendMessage(s, m) { if (s.t !== 'g') noSite(); m = copy(m); if (m.video && m.video.data) { const vid = id(); blobs[vid] = m.video.data; m.video = { id: vid, chunks: 1, thumb: m.video.thumb, dur: m.video.dur, w: m.video.w, h: m.video.h, mime: m.video.mime }; } box(s.id).messages.push(Object.assign({ id: id(), authorId: 'me', createdAt: Date.now(), reactions: {} }, m)); emit(s.id + ':messages'); touch(s.id, `${me.name}: ${m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : '🎤 הודעה קולית')}`); },
+    async sendMessage(s, m) { if (s.t !== 'g') noSite(); m = copy(m); if (m.video && m.video.data) { const vid = id(); blobs[vid] = m.video.data; m.video = { id: vid, chunks: 1, thumb: m.video.thumb, dur: m.video.dur, w: m.video.w, h: m.video.h, mime: m.video.mime }; } box(s.id).messages.push(Object.assign({ id: id(), authorId: 'me', createdAt: Date.now(), reactions: {} }, m)); emit(s.id + ':messages'); touch(s.id, `${me.name}: ${m.kind === 'sosok' ? '✅ ביטול SOS: אני בסדר' : m.kind === 'escort' ? '🚶 יצא/ה לדרך' : m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : '🎤 הודעה קולית')}`); },
     async react(s, mid, emoji) { const m = box(s.id).messages.find(x => x.id === mid); if (m) { if (emoji) m.reactions.me = emoji; else delete m.reactions.me; emit(s.id + ':messages'); } },
     async deleteMessage(s, m) { box(s.id).messages = box(s.id).messages.filter(x => x.id !== m.id); emit(s.id + ':messages'); },
     async loadVideo(s, v) { return blobs[v.id] || ''; },

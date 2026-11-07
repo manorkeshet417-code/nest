@@ -18,7 +18,7 @@ export async function LiveBackend(cfg) {
   };
   const ucache = {};
   let me = null;
-  const preview = m => m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
+  const preview = m => m.kind === 'sosok' ? '✅ ביטול SOS: אני בסדר' : m.kind === 'escort' ? '🚶 יצא/ה לדרך' + (m.text ? ' · ' + m.text : '') : m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
   const touch = (gid, text) => updateDoc(doc(db, 'groups', gid), { lastMessage: text.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id }).catch(() => {});
   const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50], capsules: ['openAt', 'asc', 100], quotes: ['createdAt', 'desc', 200], homework: ['due', 'asc', 150], exams: ['date', 'asc', 100] };
   const blobCol = s => s.t === 'g' ? collection(db, 'groups', s.id, 'blobs') : collection(db, 'chats', s.id, 'blobs');
@@ -180,6 +180,11 @@ export async function LiveBackend(cfg) {
     deleteSchoolItem(gid, kind, id) { const b = writeBatch(db); b.delete(doc(db, 'groups', gid, kind, id)); return b.commit(); },
     watchTimetable(gid, cb, err) { return onSnapshot(doc(db, 'groups', gid, 'school', 'timetable'), s => cb(s.exists() ? (s.data().days || {}) : {}), err); },
     saveTimetable(gid, days) { return setDoc(doc(db, 'groups', gid, 'school', 'timetable'), { days, by: me.id, updatedAt: serverTimestamp() }); },
+    /* live safety state: one doc per person per group (SOS / escort), others may only add their own ack */
+    watchSafety(gid, cb, err) { return onSnapshot(collection(db, 'groups', gid, 'safety'), s => cb(s.docs.map(d => Object.assign({ uid: d.id }, d.data()))), err); },
+    setSafety(gid, o) { return setDoc(doc(db, 'groups', gid, 'safety', me.id), Object.assign({}, o, { acks: {}, updatedAt: serverTimestamp() })); },
+    updateSafety(gid, p) { return updateDoc(doc(db, 'groups', gid, 'safety', me.id), Object.assign({}, p, { updatedAt: serverTimestamp() })); },
+    ackSafety(gid, uid, v) { return updateDoc(doc(db, 'groups', gid, 'safety', uid), { ['acks.' + me.id]: v }); },
     async addQuote(gid, o) { await addDoc(collection(db, 'groups', gid, 'quotes'), { text: o.text, who: o.who, age: o.age || '', by: me.id, laughs: [], createdAt: serverTimestamp() }); touch(gid, `${me.name} הוסיף/ה ציטוט של ${o.who}`); },
     laugh(gid, q) { return updateDoc(doc(db, 'groups', gid, 'quotes', q.id), { laughs: q.laughs.includes(me.id) ? arrayRemove(me.id) : arrayUnion(me.id) }); },
     deleteQuote(gid, id) { const b = writeBatch(db); b.delete(doc(db, 'groups', gid, 'quotes', id)); return b.commit(); },

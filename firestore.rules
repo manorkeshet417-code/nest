@@ -147,6 +147,14 @@ service cloud.firestore {
         allow read, write: if isMember(gid);
       }
 
+      // live safety state (SOS / escort): one doc per person; the others may only add their own ack
+      match /safety/{uid} {
+        allow read: if isMember(gid);
+        allow create, delete: if isMember(gid) && me() == uid;
+        allow update: if isMember(gid) && (me() == uid
+          || (onlyChanges(['acks']) && request.resource.data.acks.diff(resource.data.acks).affectedKeys().hasOnly([me()])));
+      }
+
       match /quotes/{qid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.by == me();

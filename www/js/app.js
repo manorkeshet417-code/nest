@@ -94,14 +94,15 @@ function notify(title, body, tag, urgent) {
   if (!('Notification' in window) || Notification.permission !== 'granted' || !swReg) return;
   swReg.showNotification(title, { body, tag, renotify: true, requireInteraction: !!urgent, vibrate: urgent ? [600, 200, 600, 200, 600, 200, 600] : [200], icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', lang: 'he', dir: 'rtl' }).catch(() => {});
 }
-const isSos = b => /🆘|📍 מיקום החירום/.test(b || ''), isCheckin = b => (b || '').includes('✅ הגיע/ה בשלום');
+const isSos = b => /🆘|📍 מיקום החירום/.test(b || ''), isCheckin = b => /✅ הגיע\/ה בשלום|✅ ביטול SOS|🚶 יצא\/ה לדרך/.test(b || '');
+const muted = LS.get('nest.muted') || {};
 // New activity from someone else: a system notification when the app is in the background, a banner when elsewhere in the app
 function activity(key, title, body, lastAt, lastBy, viewing) {
   const prev = prevAct[key]; prevAct[key] = lastAt || 0;
-  // an SOS from the last 30 minutes still alerts when the app opens afterwards
-  if (prev === undefined && isSos(body) && lastBy && lastBy !== me() && Date.now() - lastAt < 18e5 && (LS.get('nest.sosSeen') || 0) < lastAt) { sosIncoming(key, title, body, lastAt, lastBy); return; }
   if (prev === undefined || !lastAt || lastAt <= prev || !lastBy || lastBy === me()) return;
-  if (isSos(body)) { sosIncoming(key, title, body, lastAt, lastBy); return; }
+  // SOS and late arrivals are driven by the live safety docs (evalSafety), never muted
+  if (isSos(body)) return;
+  if (key.startsWith('g:') && muted[key.slice(2)] && !isCheckin(body)) return;
   if (isCheckin(body)) { notify(title, body, key); chime(); hud(body.slice(0, 70)); return; }
   if (document.hidden) notify(title, body, key);
   else if (!viewing) hud(`${title}: ${body}`.slice(0, 70));
@@ -138,6 +139,7 @@ const allMemberIds = () => [...new Set(S.groups.flatMap(g => g.members))];
 function watchAll() {
   unsub.groups = be.watchGroups(async list => {
     S.groups = list.sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+    syncSafety();
     list.forEach(g => activity('g:' + g.id, `${g.emoji} ${g.name}`, g.lastMessage || '', g.lastAt, g.lastBy, S.gid === g.id));
     const g = group();
     if ((S.screen === 'group' || S.screen === 'groupInfo') && !g && S.gid) { hud('כבר אין לך גישה לקבוצה הזו', true); go('root'); return; }
@@ -160,6 +162,7 @@ function stopAll() {
   closeGroup(); closeDM();
   ['groups', 'chats', 'incoming'].forEach(k => { if (unsub[k]) { try { unsub[k](); } catch (e) {} unsub[k] = null; } });
   S.groups = []; S.chats = []; prevAct = {};
+  Object.values(unsub.safety || {}).forEach(u => { try { u(); } catch (e) {} }); unsub.safety = {}; S.safety = {}; stopTracking();
 }
 function openGroup(gid) {
   closeGroup(); S.gid = gid; S.gtab = 'feed'; S.data = { posts: [], messages: [], events: [], images: [], lists: [] };
@@ -214,7 +217,10 @@ function render(navigated, chatChanged) {
   const solo = S.screen === 'chat' || S.screen === 'groupInfo';
   app.className = (bare ? 'bare ' : '') + (chatVisible() ? (S.screen === 'chat' ? 'chat-pad solo ' : 'chat-pad ') : solo ? 'solo ' : '') + (navigated && S.anim ? 'anim-' + S.anim : '');
   S.anim = '';
-  app.innerHTML = (S.booting ? '' : openInBrowserBanner()) + html; navEl.innerHTML = tabs;
+  app.innerHTML = (S.booting ? '' : openInBrowserBanner()) + html;
+  // my live SOS / escort rides in the sticky top bar, so it stays in view while scrolling
+  const sbar = S.booting ? '' : safetyBar();
+  if (sbar) { const nb = app.querySelector('.navbar'); if (nb) nb.insertAdjacentHTML('beforeend', sbar); else app.insertAdjacentHTML('afterbegin', sbar); } navEl.innerHTML = tabs;
   $$('[data-draft]').forEach(el => { el.value = S.drafts[el.dataset.draft] || ''; grow(el); });
   updateSend(); updateTyping(); syncAudioUI();
   if (fid && !navigated) { const n = document.getElementById(fid); if (n) { n.focus({ preventScroll: true }); if (sel && n.setSelectionRange) try { n.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
@@ -301,11 +307,11 @@ function birthdaysToday() {
 }
 function viewGroups() {
   const u = S.user, list = S.groups, bdays = birthdaysToday();
-  return bar({ title: 'קבוצות', eyebrow: local() ? '<span class="pill">תצוגה מקדימה</span>' : '', trail: `<button class="sos-hold" data-hold="sos" aria-label="SOS: לחיצה ארוכה"><span class="sos-ring"></span>SOS</button><button class="nb-btn" data-a="new-group" aria-label="קבוצה חדשה">${icon('plus', 24, 2.2)}</button>` }) +
-  permCard() +
+  return bar({ title: 'קבוצות', eyebrow: local() ? '<span class="pill">תצוגה מקדימה</span>' : '', trail: `<button class="nb-btn" data-a="escort" aria-label="ליווי הביתה">${icon('route', 23)}</button><button class="sos-hold" data-hold="sos" aria-label="SOS: לחיצה ארוכה"><span class="sos-ring"></span>SOS</button><button class="nb-btn" data-a="new-group" aria-label="קבוצה חדשה">${icon('plus', 24, 2.2)}</button>` }) +
+  permCard() + notifCard() + escortTips() +
   (canOfferInstall() && !LS.get('nest.noInstall') ? `<div class="tip">${icon('sparkles', 24)}<span class="body"><b>התקינו את Nest</b><br><span style="color:var(--label2);font-size:13px">${inAppBrowser() ? 'פתחו בדפדפן Chrome כדי להתקין' : 'אייקון במסך הבית, מסך מלא, עובד גם בלי אינטרנט'}</span></span><button class="btn filled sm" data-a="install">התקנה</button><button class="icon-btn muted sm" data-a="install-hide" aria-label="סגירה">${icon('xmark', 16)}</button></div>` : '') +
   bdays.map(b => `<div class="tip bday">${icon('cake', 26)}<span class="body">${b.id === u.id ? '<b>יום הולדת שמח!</b> כל המשפחה חוגגת איתך 🎉' : `<b>היום יום ההולדת של ${esc(nameOf(b))}</b> 🎂`}</span>${b.id !== u.id && !local() ? `<button class="btn filled sm" data-a="dm" data-v="${esc(b.id)}">ברכה</button>` : ''}</div>`).join('') +
-  (list.length ? `<div class="list av" style="--inset:80px">${list.map(g => { const un = groupUnread(g); return `<button class="row" data-a="open" data-v="${esc(g.id)}" style="padding:10px 16px">${gtile(g)}<span class="body"><span class="t" style="font-weight:600">${esc(g.name)}${g.ownerId === u.id ? '<span class="badge">בעלים</span>' : ''}</span><span class="sub" dir="auto">${esc(g.lastMessage || `${g.members.length} חברים`)}</span></span><span class="when${un ? ' un' : ''}">${g.lastAt ? listTime(g.lastAt) : ''}${un ? '<span class="udot"></span>' : ''}</span></button>`; }).join('')}</div>`
+  (list.length ? `<div class="list av" style="--inset:80px">${list.map(g => { const un = groupUnread(g); return `<button class="row" data-a="open" data-v="${esc(g.id)}" style="padding:10px 16px">${gtile(g)}<span class="body"><span class="t" style="font-weight:600">${esc(g.name)}${g.ownerId === u.id ? '<span class="badge">בעלים</span>' : ''}${muted[g.id] ? `<span class="mute-ic" aria-label="מושתקת">${icon('bellOff', 14)}</span>` : ''}</span><span class="sub" dir="auto">${esc(g.lastMessage || `${g.members.length} חברים`)}</span></span><span class="when${un ? ' un' : ''}">${g.lastAt ? listTime(g.lastAt) : ''}${un ? '<span class="udot"></span>' : ''}</span></button>`; }).join('')}</div>`
   : `<div class="empty">${icon('house', 56, 1.4)}<b>עוד אין קבוצות</b><span>פתחו קבוצה למשפחה, או הצטרפו לקבוצה קיימת עם קוד הזמנה.</span></div>`) +
   `<div class="btn-row"><button class="btn filled" data-a="new-group">${icon('plus', 18, 2.4)} קבוצה חדשה</button><button class="btn tinted" data-a="join">${icon('key', 18)} הצטרפות עם קוד</button></div>`;
 }
@@ -448,6 +454,11 @@ function chatBody(desc, kind, ctx) {
       const nm = esc(first(nameOf(S.members[m.authorId])));
       html += m.loc ? `<div class="sys"><a class="sys-pill sos" href="https://maps.google.com/?q=${+m.loc.lat},${+m.loc.lng}" target="_blank" rel="noopener">📍 ${m.authorId === u.id ? 'המיקום שלך' : 'המיקום של ' + nm} · פתיחה במפות · ${hhmm(m.createdAt)}</a></div>`
         : `<div class="sys"><span class="sys-pill sos">🆘 ${m.authorId === u.id ? 'שלחת' : nm + ' שלח/ה'} קריאת SOS · ${hhmm(m.createdAt)}</span>${m.authorId !== u.id && !local() ? `<button class="btn filled sm sos-btn" data-a="sos-person" data-v="${esc(m.authorId)}">${icon('phoneF', 16)} התקשרות</button>` : ''}</div>`;
+      lastA = ''; return;
+    }
+    if (m.kind === 'sosok' || m.kind === 'escort') {
+      const nm = m.authorId === u.id ? 'את/ה' : esc(first(nameOf(S.members[m.authorId])));
+      html += `<div class="sys"><span class="sys-pill ok">${m.kind === 'sosok' ? `${icon('shield', 16)} ${nm} בסדר · ה-SOS בוטל` : `${icon('route', 16)} ${nm} יצא/ה לדרך${m.text ? ' · ' + esc(m.text) : ''}${m.until ? ' · צפי ' + hhmm(m.until) : ''}`} · ${hhmm(m.createdAt)}</span></div>`;
       lastA = ''; return;
     }
     if (m.kind === 'checkin') {
@@ -610,24 +621,186 @@ function chime(urgent) {
   } catch (e) {}
   haptic(urgent ? [600, 200, 600, 200, 600] : [60, 80, 60]);
 }
-let sosAlarm = null;
-function sosIncoming(key, title, body, lastAt, lastBy) {
-  LS.set('nest.sosSeen', lastAt);
-  notify('🆘 ' + title, body, 'sos:' + key, true);
-  const gid = key.startsWith('g:') ? key.slice(2) : null;
-  S.sosAlert = { gid, by: lastBy, title, body, at: lastAt };
-  loadUsers([lastBy]).then(renderSosAlert);
-  renderSosAlert();
-  clearInterval(sosAlarm); let n = 0; chime(true); sosAlarm = setInterval(() => { if (++n > 20 || !S.sosAlert) { clearInterval(sosAlarm); return; } chime(true); }, 1500);
+/* ---------- live safety: SOS and escort state shared through groups/{gid}/safety/{uid} ---------- */
+const SOS_LIVE = 36e5, LATE_LIVE = 3 * 36e5;
+S.safety = {}; unsub.safety = {};
+const dismissed = LS.get('nest.safetyDismissed') || {};
+Object.keys(dismissed).forEach(k => { if (Date.now() - dismissed[k] > 864e5) delete dismissed[k]; });
+let sosAlarm = null, lastAcks = '', tracking = null, lastLocAt = 0;
+const locOf = p => ({ lat: +p.coords.latitude.toFixed(5), lng: +p.coords.longitude.toFixed(5), acc: Math.round(p.coords.accuracy), t: Date.now() });
+const mapsUrl = l => `https://maps.google.com/?q=${+l.lat},${+l.lng}`;
+async function batteryPct() { try { const b = await navigator.getBattery(); return Math.round(b.level * 100); } catch (e) { return null; } }
+const safetyDoc = (gid, uid) => (S.safety[gid] || []).find(d => d.uid === uid);
+const ackText = acks => Object.entries(acks || {}).filter(([k]) => k !== me()).map(([k, v]) => `${esc(first(nameOf(S.members[k])))} ${v === 'coming' ? 'בדרך' : 'ראה/תה'}`).join(' · ');
+
+function syncSafety() {
+  const want = new Set(S.groups.filter(safetyOn).map(g => g.id));
+  Object.keys(unsub.safety).forEach(gid => { if (!want.has(gid)) { try { unsub.safety[gid](); } catch (e) {} delete unsub.safety[gid]; delete S.safety[gid]; } });
+  want.forEach(gid => {
+    if (unsub.safety[gid]) return;
+    unsub.safety[gid] = be.watchSafety(gid, async list => {
+      S.safety[gid] = list;
+      await loadUsers(list.flatMap(d => [d.uid].concat(Object.keys(d.acks || {}))));
+      evalSafety(true);
+    }, () => {});
+  });
 }
-function closeSosAlert() { S.sosAlert = null; clearInterval(sosAlarm); renderSosAlert(); }
+// My own active SOS / escort, merged across the groups it was sent to
+function mySafety() {
+  const now = Date.now(), act = [];
+  Object.entries(S.safety).forEach(([gid, l]) => (l || []).forEach(d => {
+    if (d.uid !== me()) return;
+    if ((d.mode === 'sos' && now - d.at < 3 * SOS_LIVE) || (d.mode === 'escort' && now - d.until < LATE_LIVE)) act.push(Object.assign({ gid }, d));
+  }));
+  if (!act.length) return null;
+  const top = act.sort((a, b) => b.at - a.at)[0], same = act.filter(d => d.mode === top.mode && d.at === top.at), acks = {};
+  same.forEach(d => Object.assign(acks, d.acks || {}));
+  return { mode: top.mode, at: top.at, until: top.until, dest: top.dest, acks, gids: same.map(d => d.gid) };
+}
+function evalSafety(fromSnap) {
+  const now = Date.now();
+  let next = null;
+  Object.entries(S.safety).forEach(([gid, l]) => (l || []).forEach(d => {
+    if (d.uid === me()) return;
+    if (d.mode === 'sos' && now - d.at < SOS_LIVE) {
+      const key = d.uid + ':sos:' + d.at;
+      if (!dismissed[key] && (!next || next.kind !== 'sos')) next = { gid, by: d.uid, at: d.at, kind: 'sos', key };
+    } else if (d.mode === 'escort' && now > d.until && now - d.until < LATE_LIVE) {
+      const key = d.uid + ':late:' + d.until;
+      if (!dismissed[key] && !next) next = { gid, by: d.uid, at: d.until, kind: 'late', key };
+    }
+  }));
+  const cur = S.sosAlert;
+  if (cur) {
+    const d = safetyDoc(cur.gid, cur.by);
+    const still = d && ((cur.kind === 'sos' && d.mode === 'sos' && d.at === cur.at) || (cur.kind === 'late' && d.mode === 'escort' && d.until === cur.at));
+    if (!still) {
+      const nm = first(nameOf(S.members[cur.by]));
+      closeSosAlert();
+      if (d && d.mode === 'escort' && cur.kind === 'late') hud(`${nm} הוסיף/ה זמן לדרך`);
+      else { hud(`${nm} בסדר`); notify(`${nm} בסדר`, cur.kind === 'sos' ? 'ה-SOS בוטל' : 'הגיע/ה בשלום', 'safety:' + cur.by); }
+    } else renderSosAlert();
+  }
+  if (!S.sosAlert && next) openSafetyAlert(next);
+  // my own SOS / escort: who answered, the deadline, live location
+  const m = mySafety(), ak = m ? JSON.stringify(m.acks) : '';
+  if (m && lastAcks && ak !== lastAcks && Object.keys(m.acks).length) {
+    const [uid, v] = Object.entries(m.acks).pop();
+    hud(`${first(nameOf(S.members[uid]))} ${v === 'coming' ? 'בדרך אליך' : 'ראה/תה את ההתראה'}`); haptic([80, 60, 80]);
+  }
+  lastAcks = ak;
+  if (m && m.mode === 'escort' && now > m.until && LS.get('nest.escWarned') !== m.until) {
+    LS.set('nest.escWarned', m.until); chime(true);
+    notify('הגעת?', 'הזמן שקבעת נגמר. לחצו "הגעתי" או הוסיפו זמן, אחרת המשפחה מקבלת התראה', 'escort', true);
+    hud('הזמן נגמר. הגעת? לחצו "הגעתי"', true);
+  }
+  if (m) startTracking(); else stopTracking();
+  if (fromSnap) softRender();
+}
+setInterval(() => { if (S.user) evalSafety(); }, 15000);
+setInterval(() => { const el = $('#sb-time'), m = mySafety(); if (el && m && m.until) el.textContent = escLeft(m.until); }, 1000);
+
+function openSafetyAlert(a) {
+  S.sosAlert = a;
+  const nm = nameOf(S.members[a.by]);
+  notify(a.kind === 'sos' ? '🆘 SOS: ' + nm : '⚠️ ' + nm + ' עוד לא הגיע/ה', a.kind === 'sos' ? 'צריך/ה עזרה עכשיו. לחצו לפתיחה' : 'הזמן שנקבע לדרך נגמר, ואין אישור הגעה', 'safety:' + a.by, true);
+  renderSosAlert();
+  clearInterval(sosAlarm); let n = 0; chime(true);
+  sosAlarm = setInterval(() => { if (++n > (a.kind === 'sos' ? 20 : 5) || !S.sosAlert) { clearInterval(sosAlarm); return; } chime(true); }, 1500);
+}
+function closeSosAlert() {
+  if (S.sosAlert) { dismissed[S.sosAlert.key] = Date.now(); LS.set('nest.safetyDismissed', dismissed); }
+  S.sosAlert = null; clearInterval(sosAlarm); renderSosAlert();
+}
 function renderSosAlert() {
   let el = $('#sos-alert'); const a = S.sosAlert;
   if (!a) { if (el) el.remove(); return; }
-  if (!el) { el = document.createElement('div'); el.id = 'sos-alert'; el.className = 'call sos-alert'; el.setAttribute('role', 'alertdialog'); phoneEl.appendChild(el); }
-  const u = S.members[a.by] || { id: a.by };
-  el.innerHTML = `<div class="call-top"><div class="sos-big">SOS</div><div class="call-av">${avatar(u, 96)}</div><div class="call-name">${esc(nameOf(u))} צריך/ה עזרה</div><div class="call-st">${esc(a.title)} · ${hhmm(a.at)}</div></div>
-    <div class="sos-acts"><button class="btn filled sos-call" data-a="sos-alert-call">${icon('phoneF', 20)} התקשרות עכשיו</button>${a.gid ? '<button class="btn sos-sec" data-a="sos-alert-open">פתיחת הצ׳אט והמיקום</button>' : ''}<button class="btn sos-sec" data-a="sos-alert-close">סגירה</button></div>`;
+  if (!el) { el = document.createElement('div'); el.id = 'sos-alert'; el.setAttribute('role', 'alertdialog'); phoneEl.appendChild(el); }
+  const d = safetyDoc(a.gid, a.by) || {}, u = S.members[a.by] || { id: a.by }, late = a.kind === 'late', nm = esc(nameOf(u));
+  const loc = d.loc, mins = loc ? Math.max(0, Math.round((Date.now() - loc.t) / 60000)) : 0, acks = ackText(d.acks), mine = (d.acks || {})[me()];
+  el.className = 'call sos-alert' + (late ? ' late' : '');
+  el.innerHTML = `<div class="call-top"><div class="sos-big">${late ? 'לא הגיע/ה' : 'SOS'}</div><div class="call-av">${avatar(u, 88)}</div>
+      <div class="call-name">${late ? `${nm} עוד לא הגיע/ה` : `${nm} צריך/ה עזרה`}</div>
+      <div class="call-st">${late ? `הצפי היה ${hhmm(d.until)}${d.dest ? ' · ' + esc(d.dest) : ''}` : `נשלח ב-${hhmm(a.at)}`}${d.battery != null ? ` · סוללה ${+d.battery}%` : ''}</div>
+      ${acks ? `<div class="sos-acks">${acks}</div>` : ''}</div>
+    <div class="sos-acts">
+      <button class="btn filled sos-call" data-a="sos-alert-call">${icon('phoneF', 20)} התקשרות עכשיו</button>
+      <div class="sos-two"><button class="btn sos-sec${mine === 'seen' ? ' on' : ''}" data-a="sos-ack" data-v="seen">ראיתי</button><button class="btn sos-sec${mine === 'coming' ? ' on' : ''}" data-a="sos-ack" data-v="coming">אני בדרך</button></div>
+      ${loc ? `<a class="btn sos-sec" href="${mapsUrl(loc)}" target="_blank" rel="noopener">📍 מיקום ${mins < 1 ? 'עדכני' : `מלפני ${mins} דק׳`}</a>` : '<span class="sos-noloc">ממתינים למיקום…</span>'}
+      <div class="sos-two"><button class="btn sos-sec" data-a="sos-alert-open">לצ׳אט</button><button class="btn sos-sec" data-a="sos-alert-close">סגירה</button></div>
+    </div>`;
+}
+
+// Location keeps flowing to the family while my SOS / escort is on (and the app is open)
+function startTracking() {
+  if (tracking !== null || !navigator.geolocation) return;
+  tracking = navigator.geolocation.watchPosition(p => {
+    if (Date.now() - lastLocAt < 20000) return;
+    const m = mySafety(); if (!m) { stopTracking(); return; }
+    lastLocAt = Date.now();
+    const loc = locOf(p);
+    batteryPct().then(battery => m.gids.forEach(gid => be.updateSafety(gid, battery == null ? { loc } : { loc, battery }).catch(() => {})));
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+}
+function stopTracking() { if (tracking !== null && navigator.geolocation) navigator.geolocation.clearWatch(tracking); tracking = null; }
+
+// The bar at the top while my SOS / escort is on
+const escLeft = u => { const s = Math.round((u - Date.now()) / 1000); return s > 0 ? 'עוד ' + fmtDur(s) : 'באיחור של ' + fmtDur(-s); };
+function safetyBar() {
+  const m = mySafety(); if (!m) return '';
+  const acks = ackText(m.acks);
+  if (m.mode === 'sos') return `<div class="safety-bar sos" role="status"><div class="sb-t"><b>SOS פעיל</b><span>${acks || 'מחכים שמישהו יראה…'} · המיקום מתעדכן</span></div><button class="btn sm sb-ok" data-a="sos-ok">אני בסדר</button></div>`;
+  const late = Date.now() > m.until;
+  return `<div class="safety-bar esc${late ? ' late' : ''}" role="status"><div class="sb-t"><b>${late ? 'הזמן נגמר' : 'בליווי'}${m.dest ? ' · ' + esc(m.dest) : ''}</b><span><span id="sb-time">${escLeft(m.until)}</span>${acks ? ' · ' + acks : ''}</span></div><button class="btn sm sb-more" data-a="escort-more">+10</button><button class="btn sm sb-ok" data-a="escort-done">הגעתי</button></div>`;
+}
+async function safetyEnd(arrived) {
+  const m = mySafety(); if (!m) return;
+  if (m.mode === 'sos') {
+    const r = await confirmSheet({ title: 'לבטל את ה-SOS?', msg: 'כולם יקבלו עדכון שאת/ה בסדר.', actions: [{ label: 'אני בסדר, לבטל' }] });
+    if (r !== 0) return;
+  }
+  await Promise.all(m.gids.map(gid => be.updateSafety(gid, { mode: 'ok', endedAt: Date.now() }).catch(() => {})));
+  stopTracking();
+  await toAllGroups(m.mode === 'sos' && !arrived ? { kind: 'sosok', text: '' } : { kind: 'checkin', text: '' });
+  haptic(20); hud(m.mode === 'sos' ? 'עדכנו את כולם שאת/ה בסדר' : 'עדכנו את כולם שהגעת בשלום'); render();
+}
+
+// Escort: "walk me home" with a deadline; if it passes without "הגעתי", the family is alerted
+function escortForm() {
+  if (!S.groups.some(safetyOn)) { hud('צריך קבוצה שבה "הגעתי בשלום" פעיל', true); return; }
+  let min = 20;
+  const fs = formSheet({ title: 'ליווי הביתה', action: 'יציאה לדרך', body: `<p class="muted" style="margin:0 4px 12px">המשפחה תראה שאת/ה בדרך ואת המיקום שלך. אם לא תלחצו "הגעתי" עד הזמן שנקבע, כולם יקבלו התראה.</p>
+    <div class="list"><div class="field"><input id="es-dest" placeholder="לאן? (למשל: הביתה)" maxlength="40" autofocus></div></div>
+    <div class="section-h">כמה זמן הדרך?</div><div class="seg" id="es-min">${[10, 20, 30, 45, 60].map(v => `<button type="button" data-m="${v}" class="${v === min ? 'on' : ''}">${v} דק׳</button>`).join('')}</div>`,
+    onOk: async f => { await escortStart(f.querySelector('#es-dest').value.trim(), min); } });
+  fs.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { min = +b.dataset.m; fs.querySelectorAll('[data-m]').forEach(x => x.classList.toggle('on', x === b)); });
+}
+async function escortStart(dest, min) {
+  const at = Date.now(), until = at + min * 60000, battery = await batteryPct();
+  await Promise.all(S.groups.filter(safetyOn).map(g => be.setSafety(g.id, { mode: 'escort', at, until, dest, loc: null, battery })));
+  toAllGroups({ kind: 'escort', text: dest, until });
+  startTracking(); haptic(15); hud(`בליווי. צפי הגעה ${hhmm(until)}`); render();
+}
+async function escortMore() {
+  const m = mySafety(); if (!m || m.mode !== 'escort') return;
+  const until = Math.max(m.until, Date.now()) + 10 * 60000;
+  await Promise.all(m.gids.map(gid => be.updateSafety(gid, { until }).catch(() => {})));
+  hud(`צפי חדש: ${hhmm(until)}`);
+}
+// On the groups screen: family members who are on their way
+function escortTips() {
+  const seen = new Set(), out = [];
+  Object.values(S.safety).forEach(l => (l || []).forEach(d => {
+    if (d.uid === me() || seen.has(d.uid) || d.mode !== 'escort' || Date.now() - d.until > LATE_LIVE) return;
+    seen.add(d.uid);
+    const late = Date.now() > d.until, nm = esc(first(nameOf(S.members[d.uid])));
+    out.push(`<div class="tip${late ? ' late' : ''}">${icon('route', 24)}<span class="body"><b>${nm} ${late ? 'עוד לא הגיע/ה' : 'בדרך'}${d.dest ? ' · ' + esc(d.dest) : ''}</b><br><span style="color:var(--label2);font-size:13px">צפי ${hhmm(d.until)}${d.loc ? ` · <a href="${mapsUrl(d.loc)}" target="_blank" rel="noopener">מיקום</a>` : ''}</span></span><button class="btn tinted sm" data-a="sos-person" data-v="${esc(d.uid)}">התקשרות</button></div>`);
+  }));
+  return out.join('');
+}
+function notifCard() {
+  if (local() || !('Notification' in window) || Notification.permission !== 'default' || LS.get('nest.notifAsked') || inAppBrowser()) return '';
+  return `<div class="tip">${icon('bell', 24)}<span class="body"><b>הפעילו התראות</b><br><span style="color:var(--label2);font-size:13px">כדי לקבל SOS, "הגעתי בשלום" והודעות גם כש-Nest ברקע</span></span><button class="btn filled sm" data-a="notif">הפעלה</button><button class="icon-btn muted sm" data-a="notif-hide" aria-label="סגירה">${icon('xmark', 16)}</button></div>`;
 }
 // Hold SOS for 1.5s: every group is alerted at once; the phone call starts on release (dialing needs that tap)
 let sosT = null, sosArmed = false;
@@ -646,13 +819,17 @@ document.addEventListener('pointercancel', () => { if (!sosArmed) { clearTimeout
 document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-hold=sos]')) e.preventDefault(); });
 async function sosFire() {
   chime(true);
-  if (local()) { hud('SOS נשלח (תצוגה מקדימה)', true); return; }
+  const at = Date.now(), battery = await batteryPct(), gs = S.groups.filter(safetyOn);
+  // the live doc carries location, battery and who answered; the chat message keeps the history
+  gs.forEach(g => be.setSafety(g.id, { mode: 'sos', at, loc: null, battery }).catch(() => {}));
   const n = await toAllGroups({ kind: 'sos', text: '' });
   if (n) hud(`התראת חירום נשלחה ל-${n} ${n === 1 ? 'קבוצה' : 'קבוצות'}`, true);
-  // location follows as its own message, so the alert never waits for GPS
   if (navigator.geolocation) navigator.geolocation.getCurrentPosition(p => {
-    toAllGroups({ kind: 'sos', text: '', loc: { lat: +p.coords.latitude.toFixed(5), lng: +p.coords.longitude.toFixed(5), acc: Math.round(p.coords.accuracy) } });
+    const loc = locOf(p);
+    gs.forEach(g => be.updateSafety(g.id, { loc }).catch(() => {}));
+    toAllGroups({ kind: 'sos', text: '', loc });
   }, () => hud('המיקום לא נשלח. אפשרו גישה למיקום', true), { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  startTracking();
 }
 const telOf = p => 'tel:' + String(p).replace(/[^\d+*#]/g, '');
 function sosDial() {
@@ -678,6 +855,7 @@ function sosSheet(fired) {
   const em = [['100', 'משטרה'], ['101', 'מד"א'], ['102', 'כיבוי אש']].map(([n, t]) => `<a class="row" href="tel:${n}" style="text-decoration:none;color:inherit"><span class="sos-ic red">${icon('phoneF', 18)}</span><span class="body t">${t}</span><span class="val" dir="ltr">${n}</span></a>`).join('');
   formSheet({ title: fired ? 'SOS נשלח' : 'SOS', body: `${ph ? `<a class="btn filled sos-dial" href="${esc(telOf(ph.phone))}">${icon('phoneF', 22)} חיוג ל${esc(ph.name)}</a>` : ''}<p class="muted" style="margin:0 4px 12px">${fired ? 'ההתראה והמיקום נשלחו לקבוצות שבהן SOS פעיל. אם החייגן לא נפתח, לחצו על הכפתור האדום.' : 'לחיצה ארוכה על SOS מחייגת דרך אפליקציית הטלפון לאיש הקשר הראשון ושולחת התראה לקבוצות.'}</p>
     ${l.length ? `<div class="section-h">אנשי הקשר שלך</div><div class="list">${rows}</div>` : `<div class="list"><button class="row" data-a="sos-add">${icon('phone', 22)}<span class="body t acc">הגדרת איש קשר לחירום</span></button></div>`}
+    ${`<div class="list" style="margin-top:12px"><button class="row" data-a="escort">${icon('route', 22)}<span class="body t acc">ליווי הביתה</span><span class="chev">${icon('chev', 16)}</span></button></div>`}
     <div class="section-h">מוקדי חירום</div><div class="list">${em}</div>` });
 }
 function sosContactForm() {
@@ -913,6 +1091,8 @@ function viewGroupInfo(g) {
     <div class="btn-row" style="width:100%"><button class="btn filled" data-a="share-invite">${icon('share', 18)} שליחת הזמנה</button><button class="btn tinted" data-a="copy-invite">${icon('link', 18)} העתקה</button></div></div>
   <div class="section-h">${g.members.length} חברים</div>
   <div class="list av">${ids.map(id => { const m = S.members[id] || { id }; const b = m.birthday ? nextBirthday(m.birthday) : null; return `<${id !== u.id ? 'button' : 'div'} class="row"${id !== u.id ? ` data-a="member" data-v="${esc(id)}"` : ''}>${avatar(m, 40)}<span class="body"><span class="t">${esc(nameOf(m))}${id === u.id ? ' <span style="color:var(--label2)">(את/ה)</span>' : ''}</span>${id === g.ownerId || b ? `<span class="sub">${id === g.ownerId ? 'בעלים' : ''}${id === g.ownerId && b ? ' · ' : ''}${b ? `🎂 ${b.days === 0 ? 'היום!' : `בעוד ${b.days} ימים`}` : ''}</span>` : ''}</span>${id !== u.id ? `<span class="chev">${icon('chev', 16)}</span>` : ''}</${id !== u.id ? 'button' : 'div'}>`; }).join('')}</div>
+  <div class="section-h">התראות</div><div class="list"><div class="row">${icon(muted[g.id] ? 'bellOff' : 'bell', 22)}<span class="body t">${muted[g.id] ? 'הקבוצה מושתקת' : 'התראות פעילות'}</span><button class="btn tinted sm" data-a="mute-toggle">${muted[g.id] ? 'ביטול השתקה' : 'השתקה'}</button></div></div>
+  <p class="section-f">השתקה עוצרת התראות על הודעות ופוסטים. SOS, ליווי ו"הגעתי בשלום" תמיד מגיעים.</p>
   <div class="section-h">הגעתי בשלום ו-SOS</div><div class="list"><div class="row">${icon('shield', 22)}<span class="body t">${GTYPES[gtype(g)][1]} ${GTYPES[gtype(g)][0]} · ${safetyOn(g) ? 'פעיל' : 'כבוי'}</span>${owner ? `<button class="btn tinted sm" data-a="safety-toggle">${safetyOn(g) ? 'כיבוי' : 'הפעלה'}</button>` : ''}</div></div>
   <p class="section-f">${safetyOn(g) ? 'התראות "הגעתי בשלום" ו-SOS של החברים מגיעות לקבוצה הזו.' : 'התראות "הגעתי בשלום" ו-SOS לא נשלחות לקבוצה הזו.'}${owner ? '' : ' רק המנהל/ת יכול/ה לשנות.'}</p>
   ${owner ? `<div class="section-h">ניהול הקבוצה</div><div class="list"><button class="row blue" data-a="edit-group">עריכת שם, סוג, אייקון וצבע</button><button class="row blue" data-a="new-code">החלפת קוד ההזמנה</button><button class="row red" data-a="delete-group">מחיקת הקבוצה</button></div>
@@ -1237,9 +1417,17 @@ const A = {
   checkin: async () => {
     if (local()) { try { await send({ kind: 'checkin', text: '' }); } catch (e) {} return; }
     const n = await toAllGroups({ kind: 'checkin', text: '' });
+    const ms = mySafety(); if (n && ms && ms.mode === 'escort') { ms.gids.forEach(gid => be.updateSafety(gid, { mode: 'ok', endedAt: Date.now() }).catch(() => {})); stopTracking(); }
     if (n) { haptic(20); hud(n === 1 ? 'כולם בקבוצה יודעים שהגעת בשלום' : `עדכנת ${n} קבוצות שהגעת בשלום`); render(); }
   },
   'sos-help': () => sosSheet(),
+  'sos-ack': async b => { const a = S.sosAlert; if (!a) return; try { await be.ackSafety(a.gid, a.by, b.dataset.v); haptic(10); hud(b.dataset.v === 'coming' ? 'עדכנו שאת/ה בדרך' : 'עדכנו שראית'); } catch (e) { fail(e); } },
+  'sos-ok': () => safetyEnd(false),
+  'escort': () => { if (closeForm) closeForm(); escortForm(); },
+  'escort-done': () => safetyEnd(true),
+  'escort-more': () => escortMore(),
+  'mute-toggle': () => { const g = group(); if (!g) return; if (muted[g.id]) delete muted[g.id]; else muted[g.id] = 1; LS.set('nest.muted', muted); hud(muted[g.id] ? 'הקבוצה הושתקה. SOS עדיין יגיע' : 'ההתראות חזרו'); render(); },
+  'notif-hide': () => { LS.set('nest.notifAsked', 1); render(); },
   'sos-contacts': () => sosPhoneContact(),
   'safety-toggle': async () => { const g = group(); if (!g) return; try { await be.updateGroup(g, { safety: !safetyOn(g) }); hud(!safetyOn(g) ? 'הגעתי בשלום ו-SOS הופעלו בקבוצה' : 'הגעתי בשלום ו-SOS כובו בקבוצה'); } catch (e) { fail(e); } },
   'school-add': async () => { const r = await confirmSheet({ actions: [{ label: '📚 שיעורי בית' }, { label: '📝 מבחן' }, { label: '🗓️ עריכת מערכת שעות' }] }); if (r === 0) homeworkForm(); if (r === 1) examForm(); if (r === 2) timetableForm(); },
@@ -1255,7 +1443,7 @@ const A = {
   'sos-add-member': () => sosMemberPick(),
   'sos-del': async b => { const l = (S.sos || []).filter((_, i) => i !== +b.dataset.v); try { await be.saveSos(l); S.sos = l; render(); } catch (e) { fail(e); } },
   'sos-call': b => { const c = (S.sos || [])[+b.dataset.v]; if (c && c.uid) { if (closeForm) closeForm(); startCall(c.uid, 'audio'); } },
-  'sos-alert-call': () => { const a = S.sosAlert; closeSosAlert(); if (a) startCall(a.by, 'audio'); },
+  'sos-alert-call': () => { const a = S.sosAlert; if (!a) return; be.ackSafety(a.gid, a.by, ((safetyDoc(a.gid, a.by) || {}).acks || {})[me()] || 'seen').catch(() => {}); closeSosAlert(); startCall(a.by, 'audio'); },
   'sos-alert-open': () => { const a = S.sosAlert; closeSosAlert(); if (a && a.gid) go('group', { gid: a.gid, gtab: 'chat' }); },
   'sos-alert-close': () => closeSosAlert(),
   'perm-go': async () => { LS.set('nest.permAsked', 1); await A['media-check'](); },
@@ -1343,7 +1531,7 @@ const A = {
   },
   'copy-link': () => copyText(location.origin + location.pathname),
   'media-fix': () => showMediaHelp({ name: 'NotAllowedError' }, 'video'),
-  notif: async () => { try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
+  notif: async () => { LS.set('nest.notifAsked', 1); try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
   install: async () => {
     if (installEvt) { const e = installEvt; e.prompt(); try { const c = await e.userChoice; if (c && c.outcome === 'accepted') LS.set('nest.noInstall', 1); } catch (x) {} installEvt = null; render(); return; }
     const h = installHelp();
