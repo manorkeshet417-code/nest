@@ -167,6 +167,107 @@ export const I = {
   bell: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/>',
   cake: '<path d="M4 20.5h16M5 20.5v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7M5 15.5c1.2 1 2.3 1 3.5 0s2.3-1 3.5 0 2.3 1 3.5 0 2.3-1 3.5 0M12 11.5V8M12 6.5c-.9 0-1.5-.7-1.5-1.5 0-1 1.5-2.5 1.5-2.5s1.5 1.5 1.5 2.5c0 .8-.6 1.5-1.5 1.5z"/>',
   sparkles: '<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+  smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.8h.01M15 9.8h.01" stroke-width="2"/>',
+  film: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/>',
+  clip: '<path d="M20 11.5l-7.8 7.8a5 5 0 0 1-7-7l8.3-8.3a3.3 3.3 0 0 1 4.7 4.7l-8.3 8.3a1.7 1.7 0 0 1-2.3-2.3l7.6-7.6"/>',
+  capsule: '<rect x="4" y="9" width="16" height="11.5" rx="2.5"/><path d="M3 6h18v3H3zM12 6v14.5M9.5 3.5c1 0 2.5 1 2.5 2.5-1.5 0-3-.5-3-1.5 0-.6.2-1 .5-1zM14.5 3.5c-1 0-2.5 1-2.5 2.5 1.5 0 3-.5 3-1.5 0-.6-.2-1-.5-1z"/>',
+  quote: '<path d="M10 7H6.5A2.5 2.5 0 0 0 4 9.5V12h4.5v4.5H4M20 7h-3.5A2.5 2.5 0 0 0 14 9.5V12h4.5v4.5H14"/>',
+  question: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3M12 17h.01" stroke-width="2"/>',
+  together: '<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+  togetherF: '<path d="M12 2.5l2 5.2 5.2 2-5.2 2L12 17l-2-5.3-5.2-2 5.2-2zM18.5 14.5l.9 2.2 2.1.8-2.1.8-.9 2.2-.8-2.2-2.2-.8 2.2-.8z" fill="currentColor" stroke="none"/>',
+  shield: '<path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6z"/><path d="M8.5 12l2.5 2.5 4.5-5" stroke-width="2"/>',
   compose: '<path d="M11 4.5H6A1.5 1.5 0 0 0 4.5 6v12A1.5 1.5 0 0 0 6 19.5h12a1.5 1.5 0 0 0 1.5-1.5v-5"/><path d="M17.5 3.5l3 3L12 15l-3.8.8L9 12z"/>'
 };
 export const icon = (n, s, sw) => `<svg width="${s || 22}" height="${s || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
+/* ---------- emoji ---------- */
+export const EMOJI_SETS = [
+  ['😀', 'פרצופים', '😀 😃 😄 😁 😆 😅 🤣 😂 🙂 😉 😊 😇 🥰 😍 🤩 😘 😚 😋 😛 😜 🤪 😝 🤗 🤭 🤫 🤔 🤨 😐 😶 😏 🙄 😬 😌 😔 😴 😷 🤒 🥵 🥶 🥴 🤯 🤠 🥳 😎 🤓 🧐 😕 🙁 😮 😲 😳 🥺 😨 😰 😥 😢 😭 😱 😖 😞 😩 😫 🥱 😤 😡 🤬 😈 👻 💩 🤡'],
+  ['👋', 'ידיים ואנשים', '👋 🤚 ✋ 👌 🤌 ✌️ 🤞 🤟 🤘 🤙 👈 👉 👆 👇 👍 👎 ✊ 👊 👏 🙌 👐 🤲 🤝 🙏 💪 👶 🧒 👦 👧 🧑 👨 👩 🧓 👴 👵 👪 👨‍👩‍👧‍👦 👨‍👩‍👧 👩‍👦 🤰 🤱 💑 🧕 👮 👩‍⚕️ 👨‍🍳 👩‍🏫 🧑‍🎓 🦸 🧚'],
+  ['❤️', 'לבבות', '❤️ 🧡 💛 💚 💙 💜 🤎 🖤 🤍 💔 ❣️ 💕 💞 💓 💗 💖 💘 💝 💟 😻 💋 🫶'],
+  ['🎉', 'חגיגות', '🎉 🎊 🎈 🎂 🍰 🧁 🎁 🕯️ 🕎 🍷 🥂 🍾 🎆 🎇 ✨ 🎵 🎶 🪅 🏆 🥇 🎓 💍 👑 🌟 💯'],
+  ['🍕', 'אוכל', '🍕 🍔 🍟 🌭 🥪 🌮 🥙 🧆 🥗 🍝 🍜 🍲 🍛 🍣 🥟 🍳 🥞 🧇 🥩 🍗 🥖 🍞 🥐 🧀 🥚 🍎 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥝 🍅 🥑 🥦 🥕 🌽 🍫 🍬 🍭 🍩 🍪 🍦 ☕ 🍵 🧃 🥤'],
+  ['🐶', 'חיות וטבע', '🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐤 🦆 🦉 🐴 🦄 🐝 🦋 🐞 🐢 🐙 🐬 🐳 🐠 🌸 🌹 🌻 🌷 🌱 🌳 🌴 🍀 🌈 ☀️ 🌙 ⭐ ☁️ ⛄ 🔥 💧 🌊'],
+  ['⚽', 'פעילות ומקומות', '⚽ 🏀 🏈 ⚾ 🎾 🏐 🏓 🏊 🚴 🧘 🏃 💃 🕺 🎮 🎲 🧩 🎨 🎬 🎤 🎧 🎸 🎹 📚 ✏️ 🚗 🚌 ✈️ 🚀 🏖️ ⛺ 🏠 🏫 🏥 ⏰ 📱 💻 📷 🎒 🧳 🛒 💡 🔑']
+].map(([icon, name, list]) => ({ icon, name, list: list.split(' ') }));
+// A message of 1–3 emoji (and nothing else) is shown large, like iMessage
+export function isJumbo(t) {
+  if (!t || t.length > 40 || !/^[\p{Extended_Pictographic}\p{Emoji_Component}‍️\s]+$/u.test(t) || /^[\d#*\s]+$/.test(t)) return false;
+  const seg = typeof Intl.Segmenter === 'function' ? [...new Intl.Segmenter('he', { granularity: 'grapheme' }).segment(t.trim())].filter(s => s.segment.trim()).length : t.trim().split(/\s+/).length;
+  return seg > 0 && seg <= 3;
+}
+
+/* ---------- videos: re-encoded in the browser to ~650 kbps, stored in chunks ---------- */
+export const VIDEO_MAX_SEC = 60;
+export const CHUNK = 700000;
+export async function prepVideo(file, onProgress) {
+  const fail = c => { const e = new Error(c); e.code = c; return e; };
+  if (!file.type.startsWith('video/')) throw fail('type');
+  const url = URL.createObjectURL(file), v = document.createElement('video');
+  v.src = url; v.playsInline = true; v.preload = 'auto';
+  try {
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(fail('decode')); });
+    const dur = v.duration;
+    if (!isFinite(dur) || dur > VIDEO_MAX_SEC + 0.5) throw fail('long');
+    const r = Math.min(1, 640 / Math.max(v.videoWidth || 640, v.videoHeight || 360));
+    const w = Math.max(2, Math.round((v.videoWidth || 640) * r / 2) * 2), h = Math.max(2, Math.round((v.videoHeight || 360) * r / 2) * 2);
+    // poster frame
+    await new Promise(res => { v.onseeked = res; v.currentTime = Math.min(0.2, dur / 2); });
+    const tc = document.createElement('canvas'), tr = Math.min(1, 360 / Math.max(w, h));
+    tc.width = Math.round(w * tr); tc.height = Math.round(h * tr);
+    tc.getContext('2d').drawImage(v, 0, 0, tc.width, tc.height);
+    const thumb = tc.toDataURL('image/jpeg', .7);
+    // already small: keep the original file
+    if (file.size < 2.4e6) { onProgress && onProgress(1); return { data: await blobToDataURL(file), mime: file.type, thumb, dur: Math.round(dur), w, h }; }
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    if (!window.MediaRecorder || !c.captureStream) throw fail('unsupported');
+    const ctx = c.getContext('2d'), stream = c.captureStream(30);
+    let actx = null;
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = actx.createMediaStreamDestination();
+      actx.createMediaElementSource(v).connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch (e) { v.muted = true; }
+    const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+    const rec = new MediaRecorder(stream, Object.assign({ videoBitsPerSecond: 650000, audioBitsPerSecond: 64000 }, mime ? { mimeType: mime } : {}));
+    const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(res => { rec.onstop = res; });
+    await new Promise(res => { v.onseeked = res; v.currentTime = 0; });
+    // draw every decoded frame (requestVideoFrameCallback), falling back to animation frames
+    let raf = 0;
+    const rvfc = typeof v.requestVideoFrameCallback === 'function';
+    const draw = () => { ctx.drawImage(v, 0, 0, w, h); onProgress && onProgress(Math.min(.99, v.currentTime / dur)); if (!v.ended) raf = rvfc ? v.requestVideoFrameCallback(draw) : requestAnimationFrame(draw); };
+    if (actx && actx.state === 'suspended') await actx.resume().catch(() => {});
+    rec.start(500);
+    await v.play();
+    draw();
+    await new Promise(res => { v.onended = res; });
+    if (rvfc && v.cancelVideoFrameCallback) v.cancelVideoFrameCallback(raf); else cancelAnimationFrame(raf);
+    ctx.drawImage(v, 0, 0, w, h);
+    rec.stop(); await stopped;
+    if (actx) actx.close().catch(() => {});
+    const blob = new Blob(chunks, { type: (rec.mimeType || mime || 'video/webm').split(';')[0] });
+    onProgress && onProgress(1);
+    return { data: await blobToDataURL(blob), mime: blob.type, thumb, dur: Math.round(dur), w, h };
+  } finally { v.pause(); v.removeAttribute('src'); URL.revokeObjectURL(url); }
+}
+export function splitChunks(s) { const out = []; for (let i = 0; i < s.length; i += CHUNK) out.push(s.slice(i, i + CHUNK)); return out; }
+export async function dataURLToObjectURL(d) { const r = await fetch(d); return URL.createObjectURL(await r.blob()); }
+
+/* ---------- question of the day: the same question for the whole family each day ---------- */
+export const QUESTIONS = [
+  'מה הדבר הכי טוב שקרה לך השבוע?', 'איזה מאכל של המשפחה היית לוקח/ת לאי בודד?', 'מה הזיכרון הכי מצחיק שלך מטיול משפחתי?',
+  'אם היית יכול/ה לחיות בכל מקום בעולם, איפה?', 'מי בן המשפחה שהכי מצחיק אותך, ולמה?', 'איזה חג את/ה הכי אוהב/ת ולמה?',
+  'מה למדת לאחרונה שהפתיע אותך?', 'איזו מסורת משפחתית חשוב לך שנשמור?', 'מה השיר שתמיד מזכיר לך את הבית?',
+  'אם היה לך יום חופשי מחר, מה היית עושה?', 'מה הדבר שאת/ה הכי גאה בו השנה?', 'איזה כוח־על היית בוחר/ת?',
+  'מה הארוחה המושלמת שלך?', 'מה הדבר הראשון שהיית קונה עם מיליון שקל?', 'איזה סיפור על סבא או סבתא את/ה הכי אוהב/ת?',
+  'מה הדבר הכי טעים שאכלת אי פעם?', 'אם המשפחה שלנו הייתה סרט, איך הוא היה נקרא?', 'מה החלום הכי גדול שלך?',
+  'על מה את/ה מודה היום?', 'מה התחביב שתמיד רצית לנסות?', 'איזה זיכרון ילדות את/ה הכי אוהב/ת?',
+  'מה העצה הכי טובה שקיבלת?', 'לאן היית רוצה שנטייל כולנו ביחד?', 'מה הדבר שהכי משמח אותך בבוקר?',
+  'איזה ספר או סרט כדאי לכולנו לראות?', 'מה המקום האהוב עליך בבית?', 'איזו מילה מתארת אותך הכי טוב השבוע?',
+  'מה הדבר הכי אמיץ שעשית?', 'איזו חיה היית רוצה להיות ליום אחד?', 'מה היית אומר/ת לעצמך מלפני עשר שנים?',
+  'איזה ריח מזכיר לך את הבית?', 'מי המורה שהכי השפיע/ה עליך?', 'מה הבדיחה הכי טובה שאת/ה מכיר/ה?',
+  'מה הכי בא לך לעשות יחד בשבת הקרובה?', 'אם היית ממציא/ה חג חדש, מה חוגגים בו?', 'מה גורם לך לצחוק בכל פעם?'
+];
+export function questionFor(dateKey) { let h = 0; for (const c of dateKey) h = (h * 33 + c.charCodeAt(0)) | 0; return QUESTIONS[Math.abs(h) % QUESTIONS.length]; }

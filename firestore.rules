@@ -94,6 +94,44 @@ service cloud.firestore {
         allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
       }
 
+      // video chunks
+      match /blobs/{bid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+
+      // time capsules: everyone sees that a capsule exists and when it opens...
+      match /capsules/{cap} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me() && request.resource.data.openAt is timestamp;
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+      // ...but the message itself stays sealed on the server until the opening date (only its author can read it before)
+      match /capsuleBody/{cap} {
+        allow read: if isMember(gid) && (resource.data.by == me()
+          || request.time >= get(/databases/$(database)/documents/groups/$(gid)/capsules/$(cap)).data.openAt);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+
+      // question of the day: each member writes only their own answer
+      match /days/{day} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.keys().hasOnly(['answers'])
+          && request.resource.data.answers.keys().hasOnly([me()]);
+        allow update: if isMember(gid) && onlyChanges(['answers'])
+          && request.resource.data.answers.diff(resource.data.answers).affectedKeys().hasOnly([me()]);
+      }
+
+      // what the kids said
+      match /quotes/{qid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow update: if isMember(gid) && onlyChanges(['laughs']);
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+
       match /imageData/{iid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.by == me();
@@ -119,6 +157,12 @@ service cloud.firestore {
         allow create: if inChat() && request.resource.data.authorId == me();
         allow update: if inChat() && onlyChanges(['reactions']);
         allow delete: if inChat() && resource.data.authorId == me();
+      }
+
+      match /blobs/{bid} {
+        allow read: if inChat();
+        allow create: if inChat() && request.resource.data.by == me();
+        allow delete: if inChat() && resource.data.by == me();
       }
     }
 

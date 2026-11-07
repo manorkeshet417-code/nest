@@ -1,5 +1,5 @@
 // Firebase backend: Google sign-in + Firestore. firestore.rules enforces who may read/write what.
-import { newCode, chatId } from './util.js';
+import { newCode, chatId, splitChunks } from './util.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/11.0.2/';
 
@@ -13,14 +13,22 @@ export async function LiveBackend(cfg) {
   const ms = v => v && v.toMillis ? v.toMillis() : (typeof v === 'number' ? v : Date.now());
   const read = d => {
     const x = d.data({ serverTimestamps: 'estimate' }); x.id = d.id;
-    for (const k of ['createdAt', 'lastAt', 'updatedAt']) if (k in x) x[k] = ms(x[k]);
+    for (const k of ['createdAt', 'lastAt', 'updatedAt', 'openAt']) if (k in x) x[k] = ms(x[k]);
     return x;
   };
   const ucache = {};
   let me = null;
-  const preview = m => m.text || (m.image ? '📷 תמונה' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
+  const preview = m => m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
   const touch = (gid, text) => updateDoc(doc(db, 'groups', gid), { lastMessage: text.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id }).catch(() => {});
-  const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50] };
+  const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50], capsules: ['openAt', 'asc', 100], quotes: ['createdAt', 'desc', 200] };
+  const blobCol = s => s.t === 'g' ? collection(db, 'groups', s.id, 'blobs') : collection(db, 'chats', s.id, 'blobs');
+  // videos: base64 split across documents (each under Firestore's 1 MB limit)
+  async function uploadVideo(s, v) {
+    const id = doc(blobCol(s)).id, parts = splitChunks(v.data);
+    for (let i = 0; i < parts.length; i++) await setDoc(doc(blobCol(s), id + '_' + i), { by: me.id, i, data: parts[i] });
+    return { id, chunks: parts.length, thumb: v.thumb, dur: v.dur, w: v.w, h: v.h, mime: v.mime };
+  }
+  function dropVideo(s, v) { if (!v) return; const b = writeBatch(db); for (let i = 0; i < v.chunks; i++) b.delete(doc(blobCol(s), v.id + '_' + i)); b.commit().catch(() => {}); }
   const msgCol = s => s.t === 'g' ? collection(db, 'groups', s.id, 'messages') : collection(db, 'chats', s.id, 'messages');
   const scopeDoc = s => s.t === 'g' ? doc(db, 'groups', s.id) : doc(db, 'chats', s.id);
 
@@ -96,9 +104,10 @@ export async function LiveBackend(cfg) {
     async addPost(gid, o) {
       const imageId = o.image ? await this.addPhoto(gid, o.image) : '';
       const data = { authorId: me.id, text: o.text || '', imageId, createdAt: serverTimestamp(), likes: [], commentCount: 0 };
+      if (o.video) data.video = await uploadVideo({ t: 'g', id: gid }, o.video);
       if (o.poll) { data.poll = { options: o.poll }; data.votes = {}; }
       await addDoc(collection(db, 'groups', gid, 'posts'), data);
-      touch(gid, o.poll ? `${me.name} פתח/ה סקר: ${o.text}` : o.text ? `${me.name}: ${o.text}` : `${me.name} שיתף/ה תמונה`);
+      touch(gid, o.poll ? `${me.name} פתח/ה סקר: ${o.text}` : o.text ? `${me.name}: ${o.text}` : o.video ? `${me.name} שיתף/ה סרטון` : `${me.name} שיתף/ה תמונה`);
     },
     toggleLike(gid, p) { return updateDoc(doc(db, 'groups', gid, 'posts', p.id), { likes: p.likes.includes(me.id) ? arrayRemove(me.id) : arrayUnion(me.id) }); },
     vote(gid, pid, idx) { return updateDoc(doc(db, 'groups', gid, 'posts', pid), { ['votes.' + me.id]: idx }); },
@@ -106,6 +115,7 @@ export async function LiveBackend(cfg) {
       const b = writeBatch(db); b.delete(doc(db, 'groups', gid, 'posts', p.id));
       if (p.imageId) { b.delete(doc(db, 'groups', gid, 'images', p.imageId)); b.delete(doc(db, 'groups', gid, 'imageData', p.imageId)); }
       await b.commit();
+      dropVideo({ t: 'g', id: gid }, p.video);
     },
     async addComment(gid, pid, text) {
       const b = writeBatch(db);
@@ -131,13 +141,38 @@ export async function LiveBackend(cfg) {
     /* messages: scope {t:'g'|'c', id} */
     watchMessages(s, cb, err) { return onSnapshot(query(msgCol(s), orderBy('createdAt', 'desc'), limit(250)), q => cb(q.docs.map(read)), err); },
     async sendMessage(s, m) {
+      if (m.video && m.video.data) m = Object.assign({}, m, { video: await uploadVideo(s, m.video) });
       await addDoc(msgCol(s), Object.assign({ authorId: me.id, createdAt: serverTimestamp(), reactions: {} }, m));
       const p = preview(m);
       if (s.t === 'g') touch(s.id, `${me.name}: ${p}`);
       else updateDoc(scopeDoc(s), { lastMessage: p.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id, ['reads.' + me.id]: Date.now() }).catch(() => {});
     },
     react(s, mid, emoji) { return updateDoc(doc(msgCol(s), mid), { ['reactions.' + me.id]: emoji || deleteField() }); },
-    deleteMessage(s, mid) { const b = writeBatch(db); b.delete(doc(msgCol(s), mid)); return b.commit(); },
+    async deleteMessage(s, m) { const b = writeBatch(db); b.delete(doc(msgCol(s), m.id)); await b.commit(); dropVideo(s, m.video); },
+    async loadVideo(s, v) {
+      const parts = await Promise.all(Array.from({ length: v.chunks }, (_, i) => getDoc(doc(blobCol(s), v.id + '_' + i))));
+      if (parts.some(p => !p.exists())) throw Object.assign(new Error('missing'), { code: 'missing' });
+      return parts.map(p => p.data().data).join('');
+    },
+
+    /* time capsules: the message itself is unreadable (enforced by the rules) until openAt */
+    async addCapsule(gid, o) {
+      const ref = doc(collection(db, 'groups', gid, 'capsules')), b = writeBatch(db);
+      b.set(ref, { by: me.id, title: o.title, to: o.to || '', openAt: F.Timestamp.fromDate(new Date(o.openAt + 'T00:00:00')), hasImage: !!o.image, createdAt: serverTimestamp() });
+      b.set(doc(db, 'groups', gid, 'capsuleBody', ref.id), { by: me.id, text: o.text || '', image: o.image || '' });
+      await b.commit(); touch(gid, `${me.name} נעל/ה קפסולת זמן: ${o.title}`);
+    },
+    async capsuleBody(gid, id) { const s = await getDoc(doc(db, 'groups', gid, 'capsuleBody', id)); return s.exists() ? s.data() : null; },
+    async deleteCapsule(gid, id) { const b = writeBatch(db); b.delete(doc(db, 'groups', gid, 'capsuleBody', id)); b.delete(doc(db, 'groups', gid, 'capsules', id)); await b.commit(); },
+
+    /* question of the day */
+    watchDay(gid, key, cb, err) { return onSnapshot(doc(db, 'groups', gid, 'days', key), s => cb(s.exists() ? s.data() : { answers: {} }), err); },
+    async answerDay(gid, key, t) { await setDoc(doc(db, 'groups', gid, 'days', key), { answers: { [me.id]: { t, at: Date.now() } } }, { merge: true }); touch(gid, `${me.name} ענה/תה על שאלת היום`); },
+
+    /* family quotes */
+    async addQuote(gid, o) { await addDoc(collection(db, 'groups', gid, 'quotes'), { text: o.text, who: o.who, age: o.age || '', by: me.id, laughs: [], createdAt: serverTimestamp() }); touch(gid, `${me.name} הוסיף/ה ציטוט של ${o.who}`); },
+    laugh(gid, q) { return updateDoc(doc(db, 'groups', gid, 'quotes', q.id), { laughs: q.laughs.includes(me.id) ? arrayRemove(me.id) : arrayUnion(me.id) }); },
+    deleteQuote(gid, id) { const b = writeBatch(db); b.delete(doc(db, 'groups', gid, 'quotes', id)); return b.commit(); },
     setTyping(s) { return updateDoc(scopeDoc(s), { ['typing.' + me.id]: Date.now() }).catch(() => {}); },
     markRead(cid) { return updateDoc(doc(db, 'chats', cid), { ['reads.' + me.id]: Date.now() }).catch(() => {}); },
 

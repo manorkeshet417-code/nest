@@ -1,6 +1,7 @@
 // Nest app: state, screens and actions
 import { $, $$, esc, haptic, LS, linkify, MONTHS, DAYS, iso, dayKey, hhmm, fmtDur, ago, listTime, dayLabel, daysTo, nextBirthday,
-  COLORS, EMOJIS, REACTIONS, first, nameOf, userColor, chatId, avatar, gtile, prepImage, chatImage, blobToDataURL, recorderMime, icon } from './util.js';
+  COLORS, EMOJIS, REACTIONS, first, nameOf, userColor, chatId, avatar, gtile, prepImage, chatImage, blobToDataURL, recorderMime, icon,
+  EMOJI_SETS, isJumbo, prepVideo, dataURLToObjectURL, questionFor, VIDEO_MAX_SEC } from './util.js';
 import { FIREBASE_CONFIG } from './config.js';
 import { LiveBackend } from './backend-live.js';
 import { LocalBackend } from './backend-local.js';
@@ -17,8 +18,8 @@ let be = null, calls = null;
 const S = {
   booting: true, user: null, groups: [], chats: [], members: {},
   screen: 'root', tab: 'groups', gid: null, gtab: 'feed', cid: null,
-  data: { posts: [], messages: [], events: [], images: [], lists: [] }, dm: [],
-  drafts: {}, img: null, poll: null, reply: null, rec: null, viewer: null, comments: null, incoming: null,
+  data: { posts: [], messages: [], events: [], images: [], lists: [], capsules: [], quotes: [] }, dm: [],
+  drafts: {}, img: null, vid: null, hub: null, day: { answers: {} }, poll: null, reply: null, rec: null, viewer: null, comments: null, incoming: null,
   anim: '', busy: false, joinCode: params.get('join') || ''
 };
 const full = {}, loadedFull = new Set();
@@ -99,10 +100,10 @@ function go(screen, o, push) {
   const from = S.screen;
   S.anim = screen !== 'root' && from === 'root' ? 'push' : screen === 'root' && from !== 'root' ? 'pop' : screen === 'groupInfo' ? 'push' : from === 'groupInfo' ? 'pop' : 'fade';
   if (screen === 'root') { closeGroup(); closeDM(); if (o.tab) S.tab = o.tab; }
-  if (screen === 'group' || screen === 'groupInfo') { closeDM(); if (o.gid && o.gid !== S.gid) openGroup(o.gid); if (o.gtab) S.gtab = o.gtab; }
+  if (screen === 'group' || screen === 'groupInfo') { closeDM(); if (o.gid && o.gid !== S.gid) openGroup(o.gid); if (o.gtab) S.gtab = o.gtab; S.hub = o.hub || null; }
   if (screen === 'chat') { closeGroup(); if (o.cid && o.cid !== S.cid) openDM(o.cid); }
   S.screen = screen; S.reply = null;
-  if (push !== false) { try { history.pushState({ screen, gid: S.gid, cid: S.cid, tab: S.tab, gtab: S.gtab }, ''); } catch (e) {} }
+  if (push !== false) { try { history.pushState({ screen, gid: S.gid, cid: S.cid, tab: S.tab, gtab: S.gtab, hub: S.hub }, ''); } catch (e) {} }
   render(true);
 }
 window.addEventListener('popstate', e => {
@@ -148,7 +149,9 @@ function stopAll() {
 function openGroup(gid) {
   closeGroup(); S.gid = gid; S.gtab = 'feed'; S.data = { posts: [], messages: [], events: [], images: [], lists: [] };
   const watchKind = k => be.watch(gid, k, async list => { S.data[k] = list; if (k === 'posts') await loadUsers(list.map(p => p.authorId)); softRender(); }, fail);
-  ['posts', 'events', 'images', 'lists'].forEach(k => unsub.group.push(watchKind(k)));
+  ['posts', 'events', 'images', 'lists', 'capsules', 'quotes'].forEach(k => unsub.group.push(watchKind(k)));
+  S.day = { answers: {} };
+  unsub.group.push(be.watchDay(gid, iso(new Date()), async d => { S.day = d; await loadUsers(Object.keys(d.answers || {})); softRender(); }, fail));
   unsub.group.push(be.watchMessages({ t: 'g', id: gid }, async list => {
     S.data.messages = list; await loadUsers(list.map(m => m.authorId));
     if (S.gtab === 'chat' && !document.hidden) markGroupChatSeen();
@@ -214,7 +217,7 @@ function updateSend() {
     if (has) { b.removeAttribute('data-a'); b.setAttribute('aria-label', 'שליחה'); b.innerHTML = icon('send', 18); b.disabled = false; }
     else { b.dataset.a = 'rec-start'; b.setAttribute('aria-label', 'הקלטת הודעה קולית'); b.innerHTML = icon('mic', 19, 2); b.disabled = recorderMime() === null; }
   }
-  const p = $('#post-btn'); if (p) p.disabled = S.busy || !((S.drafts.post || '').trim() || S.img);
+  const p = $('#post-btn'); if (p) p.disabled = S.busy || !((S.drafts.post || '').trim() || S.img || S.vid);
 }
 
 function bar(o) {
@@ -233,7 +236,7 @@ function rootTabs() {
 }
 function groupTabs() {
   const n = S.gtab === 'chat' ? 0 : groupChatUnread();
-  return tabbar([['feed', 'פיד', 'feed', 0], ['chat', 'צ׳אט', 'chat', n], ['events', 'אירועים', 'cal', 0], ['album', 'אלבום', 'photo', 0], ['lists', 'רשימות', 'list', 0]], S.gtab, 'gtab');
+  return tabbar([['feed', 'פיד', 'feed', 0], ['chat', 'צ׳אט', 'chat', n], ['events', 'אירועים', 'cal', 0], ['album', 'אלבום', 'photo', 0], ['together', 'ביחד', 'together', 0]], S.gtab, 'gtab');
 }
 
 /* ---------- login ---------- */
@@ -317,10 +320,11 @@ function viewProfile() {
 
 /* ---------- group ---------- */
 function viewGroup(g) {
-  const add = { events: ['new-event', 'אירוע חדש'], album: ['pick', 'הוספת תמונות', 'album'], lists: ['new-list', 'רשימה חדשה'] }[S.gtab];
+  const add = S.gtab === 'together' ? { lists: ['new-list', 'רשימה חדשה'], capsules: ['new-capsule', 'קפסולה חדשה'], quotes: ['new-quote', 'ציטוט חדש'] }[S.hub] : { events: ['new-event', 'אירוע חדש'], album: ['pick', 'הוספת תמונות', 'album'] }[S.gtab];
   const trail = (add ? `<button class="nb-btn" data-a="${add[0]}"${add[2] ? ` data-v="${add[2]}"` : ''} aria-label="${add[1]}">${icon('plus', 24, 2.2)}</button>` : '') + `<button class="nb-btn" data-a="group-info" aria-label="פרטי הקבוצה">${icon('info', 23)}</button>`;
-  const head = bar({ inline: true, back: 'קבוצות', titleHtml: `<button class="nb-tbtn" data-a="group-info"><span>${esc(g.emoji)}</span><span class="ell">${esc(g.name)}</span></button>`, trail });
-  return head + ({ feed: viewFeed, chat: viewGroupChat, events: viewEvents, album: viewAlbum, lists: viewLists }[S.gtab])(g);
+  const hubTitle = { lists: 'רשימות', capsules: 'קפסולות זמן', quotes: 'מה הילדים אמרו' }[S.hub];
+  const head = bar({ inline: true, back: hubTitle ? 'ביחד' : 'קבוצות', titleHtml: hubTitle ? esc(hubTitle) : `<button class="nb-tbtn" data-a="group-info"><span>${esc(g.emoji)}</span><span class="ell">${esc(g.name)}</span></button>`, trail });
+  return head + ({ feed: viewFeed, chat: viewGroupChat, events: viewEvents, album: viewAlbum, together: viewTogether }[S.gtab] || viewFeed)(g);
 }
 
 function imgFor(iid) { const im = S.data.images.find(i => i.id === iid); return full[iid] || (im && im.thumb) || ''; }
@@ -328,8 +332,9 @@ function viewFeed(g) {
   const u = S.user, posts = S.data.posts, P = S.poll;
   return `<form id="post-form" class="composer"><div class="top">${avatar(u, 38)}<textarea id="post-text" data-draft="post" rows="1" placeholder="${P ? 'מה השאלה?' : `מה חדש, ${esc(first(u.name))}?`}" aria-label="${P ? 'שאלת הסקר' : 'פוסט חדש'}" dir="auto"></textarea></div>
     ${S.img ? `<div class="prev"><img src="${S.img.thumb.data}" alt="התמונה שנבחרה"><button type="button" data-a="clear-img" aria-label="הסרת התמונה">${icon('xmark', 16)}</button></div>` : ''}
+    ${S.vid ? `<div class="prev"><img src="${S.vid.thumb}" alt="הסרטון שנבחר"><span class="vplay">${icon('play', 24)}</span><span class="vdur">${fmtDur(S.vid.dur)}</span><button type="button" data-a="clear-vid" aria-label="הסרת הסרטון">${icon('xmark', 16)}</button></div>` : ''}
     ${P ? `<div class="poll-ed">${P.options.map((o, i) => `<input data-poll="${i}" value="${esc(o)}" placeholder="אפשרות ${i + 1}" maxlength="60" aria-label="אפשרות ${i + 1}">`).join('')}${P.options.length < 5 ? `<button type="button" class="link-btn" data-a="poll-add">${icon('plus', 16, 2.4)} אפשרות נוספת</button>` : ''}</div>` : ''}
-    <div class="bar"><span class="btn-row" style="margin:0;gap:6px">${P ? '' : `<button type="button" class="btn tinted sm" data-a="pick" data-v="post">${icon('camera', 18)} תמונה</button>`}<button type="button" class="btn ${P ? 'filled' : 'tinted'} sm" data-a="poll-toggle" aria-pressed="${!!P}">${icon('poll', 18)} סקר</button></span><button id="post-btn" class="btn filled sm"${S.busy ? ' disabled' : ''}>${S.busy ? 'מפרסם…' : 'פרסום'}</button></div></form>
+    <div class="bar"><span class="btn-row" style="margin:0;gap:6px">${P ? '' : `<button type="button" class="btn tinted sm ic" data-a="pick" data-v="post" aria-label="תמונה">${icon('camera', 19)}</button><button type="button" class="btn tinted sm ic" data-a="pick-video" data-v="post" aria-label="סרטון">${icon('film', 19)}</button>`}<button type="button" class="btn tinted sm ic" data-a="emoji" data-v="post-text" aria-label="אימוג׳י">${icon('smile', 19)}</button><button type="button" class="btn ${P ? 'filled' : 'tinted'} sm" data-a="poll-toggle" aria-pressed="${!!P}">${icon('poll', 18)}${P ? ' סקר' : ''}</button></span><button id="post-btn" class="btn filled sm"${S.busy ? ' disabled' : ''}>${S.busy ? 'מפרסם…' : 'פרסום'}</button></div></form>
   <div class="posts">${posts.map(p => postCard(p, g, u)).join('') || `<div class="empty">${icon('feed', 48, 1.4)}<b>הפיד ריק</b><span>שתפו את הרגע הראשון של ${esc(g.name)}.</span></div>`}</div>`;
 }
 function postCard(p, g, u) {
@@ -342,6 +347,7 @@ function postCard(p, g, u) {
   }
   return `<article class="post"><header>${avatar(a, 40)}<div class="who"><b>${esc(nameOf(a))}</b><span>${ago(p.createdAt)}${p.poll ? ' · סקר' : ''}</span></div>${p.authorId === u.id || isOwner(g) ? `<button class="icon-btn muted" data-a="post-menu" data-v="${esc(p.id)}" aria-label="אפשרויות">${icon('more', 22)}</button>` : ''}</header>
     ${p.text ? `<p class="post-text${p.poll ? ' q' : ''}" dir="auto">${linkify(p.text)}</p>` : ''}${poll}
+    ${p.video ? videoThumb(p.video, p.id, 'post', 'post-vid') : ''}
     ${p.imageId && (src || im) ? `<button class="post-img" data-a="view-img" data-v="${esc(p.imageId)}" style="aspect-ratio:${im ? im.w + '/' + im.h : '4/3'}"><img data-iid="${esc(p.imageId)}" src="${src}" alt="תמונה מ${esc(nameOf(a))}"></button>` : ''}
     <footer><button class="act${liked ? ' on' : ''}" data-a="like" data-v="${esc(p.id)}" aria-pressed="${liked}" aria-label="לייק">${icon('heart', 22)} ${p.likes.length || ''}</button><button class="act" data-a="comments" data-v="${esc(p.id)}" aria-label="תגובות">${icon('comment', 22)} ${p.commentCount || ''}</button></footer>
     ${likers.length ? `<div class="likers">${esc(likers.join(', '))}${p.likes.length > 3 ? ` ועוד ${p.likes.length - 3}` : ''} אהבו</div>` : ''}</article>`;
@@ -368,17 +374,23 @@ function chatBody(desc, kind, ctx) {
       html += `<div class="sys"><button class="sys-pill${missed ? ' miss' : ''}" data-a="call" data-v="${esc(c.kind || 'audio')}">${icon(c.kind === 'video' ? 'video' : 'phone', 16)} ${missed ? (c.status === 'declined' ? 'שיחה שנדחתה' : 'שיחה שלא נענתה') : `שיחה ${c.kind === 'video' ? 'בווידאו' : 'קולית'} ${who} · ${fmtDur(c.dur)}`} · ${hhmm(m.createdAt)}</button></div>`;
       lastA = ''; return;
     }
+    if (m.kind === 'checkin') {
+      html += `<div class="sys"><span class="sys-pill ok">${icon('shield', 16)} ${m.authorId === u.id ? 'עדכנת שהגעת' : esc(first(nameOf(S.members[m.authorId]))) + ' הגיע/ה'} בשלום · ${hhmm(m.createdAt)}</span></div>`;
+      lastA = ''; return;
+    }
     const mine = m.authorId === u.id, a = S.members[m.authorId] || { id: m.authorId }, firstOf = m.authorId !== lastA;
     lastA = m.authorId;
+    const jumbo = !m.image && !m.video && !m.audio && !m.replyTo && isJumbo(m.text);
     const reacts = Object.entries(m.reactions || {}), agg = {};
     reacts.forEach(([who, e]) => { agg[e] = agg[e] || { n: 0, mine: false }; agg[e].n++; if (who === u.id) agg[e].mine = true; });
     const r = m.replyTo, rName = r ? (r.authorId === u.id ? 'את/ה' : nameOf(S.members[r.authorId])) : '';
     const seenIt = kind === 'c' && mine && lastMine && m.id === lastMine.id;
     html += `<div class="msg${mine ? ' mine' : ''}${firstOf ? ' first' : ''}" id="m-${esc(m.id)}">${!mine && kind === 'g' ? `<span class="msg-av">${firstOf ? avatar(a, 28) : ''}</span>` : ''}<div class="mcol">
-      <div class="bubble${m.image && !m.text ? ' pic' : ''}" data-mid="${esc(m.id)}">
+      <div class="bubble${(m.image || m.video) && !m.text ? ' pic' : ''}${jumbo ? ' jumbo' : ''}" data-mid="${esc(m.id)}">
         ${!mine && firstOf && kind === 'g' ? `<div class="msg-name" style="color:${userColor(m.authorId)}">${esc(nameOf(a))}</div>` : ''}
         ${r ? `<button class="quote" data-a="jump" data-v="${esc(r.id)}"><b>${esc(rName)}</b><span>${esc(r.text || '')}</span></button>` : ''}
         ${m.image ? `<button class="mimg" data-a="view-src" data-v="${esc(m.id)}"><img src="${m.image}" alt="תמונה" style="aspect-ratio:${m.w || 4}/${m.h || 3}"></button>` : ''}
+        ${m.video ? videoThumb(m.video, m.id, 'msg', 'mvid') : ''}
         ${m.audio ? `<div class="aud" data-aid="${esc(m.id)}"><button class="aud-btn" data-a="play" data-v="${esc(m.id)}" aria-label="ניגון הודעה קולית">${icon('play', 18)}</button><span class="aud-bar"><span></span></span><span class="aud-t">${fmtDur(m.audio.dur)}</span></div>` : ''}
         ${m.text ? `<span class="mtext" dir="auto">${linkify(m.text)}</span>` : ''}
         <span class="msg-time">${hhmm(m.createdAt)}${mine && kind === 'c' ? `<span class="rcpt${m.createdAt <= otherRead ? ' read' : ''}">${icon(m.createdAt <= otherRead ? 'checks' : 'check', 14, 2.2)}</span>` : ''}</span>
@@ -396,7 +408,7 @@ function chatBar(solo) {
   if (S.rec) return `<form id="chat-form" class="chat-bar glass rec${solo ? ' solo' : ''}"><div class="crow"><button type="button" class="link-btn red" data-a="rec-cancel">ביטול</button><span class="rec-dot"></span><span class="rec-t" id="rec-t">0:00</span><span class="body" style="color:var(--label2);font-size:15px">מקליט…</span><button type="button" class="send" data-a="rec-send" aria-label="שליחת ההקלטה">${icon('send', 18)}</button></div></form>`;
   return `<form id="chat-form" class="chat-bar glass${solo ? ' solo' : ''}">
     ${r ? `<div class="reply-bar">${icon('reply', 18)}<span class="body"><b>תשובה ל${esc(r.authorId === me() ? 'עצמך' : nameOf(S.members[r.authorId]))}</b><span>${esc(r.text)}</span></span><button type="button" class="icon-btn muted" data-a="reply-cancel" aria-label="ביטול התשובה">${icon('xmark', 16)}</button></div>` : ''}
-    <div class="crow"><button type="button" class="icon-btn" data-a="pick" data-v="chat" aria-label="שליחת תמונה">${icon('camera', 23)}</button><textarea id="chat-in" data-draft="${draftKey()}" rows="1" placeholder="הודעה" aria-label="הודעה" dir="auto" enterkeyhint="send"></textarea><button id="chat-send" class="send" type="button" aria-label="הקלטת הודעה קולית">${icon('mic', 19, 2)}</button></div></form>`;
+    <div class="crow"><button type="button" class="icon-btn" data-a="attach" aria-label="צירוף תמונה, סרטון או עדכון">${icon('plus', 24, 2.2)}</button><button type="button" class="icon-btn" data-a="emoji" data-v="chat-in" aria-label="אימוג׳י">${icon('smile', 23)}</button><textarea id="chat-in" data-draft="${draftKey()}" rows="1" placeholder="הודעה" aria-label="הודעה" dir="auto" enterkeyhint="send"></textarea><button id="chat-send" class="send" type="button" aria-label="הקלטת הודעה קולית">${icon('mic', 19, 2)}</button></div></form>`;
 }
 function typingNames(map, ids) {
   const now = Date.now();
@@ -420,7 +432,7 @@ async function send(m) {
   finally { render(); }
 }
 function msgById(id) { return curMsgs().find(m => m.id === id); }
-function msgPreview(m) { return m.text || (m.image ? '📷 תמונה' : m.audio ? '🎤 הודעה קולית' : ''); }
+function msgPreview(m) { return m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : ''); }
 
 // long press / right click on a bubble: reactions, reply, copy, delete
 async function msgMenu(mid) {
@@ -435,7 +447,7 @@ async function msgMenu(mid) {
   const a = acts[r]; if (!a) return;
   if (a.k === 'reply') { S.reply = { id: m.id, authorId: m.authorId, text: msgPreview(m).slice(0, 80) }; render(); const t = $('#chat-in'); if (t) t.focus({ preventScroll: true }); }
   if (a.k === 'copy') copyText(m.text);
-  if (a.k === 'delete') { try { await be.deleteMessage(scope(), mid); hud('ההודעה נמחקה'); } catch (x) { fail(x); } }
+  if (a.k === 'delete') { try { await be.deleteMessage(scope(), m); hud('ההודעה נמחקה'); } catch (x) { fail(x); } }
 }
 let pressT = null, pressXY = null;
 document.addEventListener('pointerdown', e => {
@@ -645,7 +657,7 @@ function renderViewer() {
   const v = S.viewer;
   if (!v) { const o = $('.viewer'); if (o) o.remove(); return; }
   let src, info, idx = -1, list = [], canDel = false;
-  if (v.src) { src = v.src; info = v.info || ''; }
+  if (v.src || v.video) { src = v.src; info = v.info || ''; }
   else {
     list = S.data.images; idx = list.findIndex(x => x.id === v.id);
     if (idx < 0) { S.viewer = null; renderViewer(); return; }
@@ -655,7 +667,7 @@ function renderViewer() {
   let o = $('.viewer');
   if (!o) { o = document.createElement('div'); o.className = 'viewer'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'תמונה'); phoneEl.appendChild(o); }
   o.innerHTML = `<div class="vt"><button class="nb-btn" data-a="viewer-close" style="color:#fff">סגירה</button><span style="font-size:15px;font-weight:600">${idx >= 0 ? `${idx + 1} מתוך ${list.length}` : ''}</span>${canDel ? `<button class="icon-btn" data-a="viewer-del" aria-label="מחיקת התמונה" style="color:#fff">${icon('trash', 22)}</button>` : '<span style="width:44px"></span>'}</div>
-    <div class="vimg"><img ${idx >= 0 ? `data-iid="${esc(list[idx].id)}"` : ''} src="${src}" alt="">
+    <div class="vimg">${v.video ? `<video src="${v.video}" controls autoplay playsinline></video>` : `<img ${idx >= 0 ? `data-iid="${esc(list[idx].id)}"` : ''} src="${src}" alt="">`}
       ${idx > 0 ? `<button class="vnav" style="right:10px" data-a="viewer-step" data-v="-1" aria-label="הקודמת">${icon('prev', 22)}</button>` : ''}
       ${idx >= 0 && idx < list.length - 1 ? `<button class="vnav" style="left:10px" data-a="viewer-step" data-v="1" aria-label="הבאה">${icon('next', 22)}</button>` : ''}</div>
     <div class="vinfo">${esc(info)}</div>`;
@@ -747,6 +759,151 @@ function listForm() {
   fs.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { fs.querySelector('#lf-t').value = b.dataset.s; });
 }
 
+/* ---------- videos ---------- */
+const vcache = {};
+// A small floating pill while a video is being compressed, uploaded or downloaded
+function vprog(text, p) {
+  let el = $('#vprog');
+  if (!text) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'vprog'; el.className = 'vprog glass'; el.setAttribute('role', 'status'); phoneEl.appendChild(el); }
+  el.innerHTML = `${icon('film', 18)}<span>${esc(text)}</span>${p !== undefined ? `<b>${Math.round(p * 100)}%</b>` : '<span class="spinner sm"></span>'}`;
+}
+function videoThumb(v, ownerId, kind, cls) {
+  return `<button class="vthumb ${cls || ''}" data-a="play-video" data-v="${esc(ownerId)}" data-k="${kind}" style="aspect-ratio:${v.w || 16}/${v.h || 9}" aria-label="ניגון סרטון, ${fmtDur(v.dur)}"><img src="${v.thumb}" alt=""><span class="vplay">${icon('play', 24)}</span><span class="vdur">${fmtDur(v.dur)}</span></button>`;
+}
+
+/* ---------- emoji picker ---------- */
+function emojiSheet(targetId) {
+  const recent = (LS.get('nest.recentEmoji') || []).slice(0, 16);
+  const sets = (recent.length ? [{ icon: '🕘', name: 'אחרונים', list: recent }] : []).concat(EMOJI_SETS);
+  const fs = formSheet({ title: 'אימוג׳י', action: 'סיום',
+    body: `<div class="emo-tabs" role="tablist">${sets.map((x, i) => `<button type="button" role="tab" data-et="${i}" aria-selected="${i === 0}" aria-label="${esc(x.name)}">${x.icon}</button>`).join('')}</div>
+      <div class="emo-grid" id="emo-grid"></div>`,
+    onOk() {} });
+  const grid = fs.querySelector('#emo-grid');
+  const show = i => { grid.innerHTML = `<div class="emo-h">${esc(sets[i].name)}</div>` + sets[i].list.map(e => `<button type="button" data-em="${e}" aria-label="${e}">${e}</button>`).join(''); fs.querySelectorAll('[data-et]').forEach(t => t.setAttribute('aria-selected', t.dataset.et == i)); };
+  show(0);
+  fs.querySelectorAll('[data-et]').forEach(t => t.onclick = () => show(+t.dataset.et));
+  grid.onclick = e => {
+    const b = e.target.closest('[data-em]'); if (!b) return;
+    const em = b.dataset.em, el = document.getElementById(targetId);
+    haptic(4);
+    LS.set('nest.recentEmoji', [em].concat((LS.get('nest.recentEmoji') || []).filter(x => x !== em)).slice(0, 24));
+    if (!el) return;
+    const a = el.selectionStart ?? el.value.length, z = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, a) + em + el.value.slice(z);
+    el.selectionStart = el.selectionEnd = a + em.length;
+    if (el.dataset.draft) S.drafts[el.dataset.draft] = el.value;
+    grow(el); updateSend();
+  };
+}
+
+/* ---------- Together: features made for families ---------- */
+function viewTogether(g) {
+  if (S.hub === 'capsules') return viewCapsules(g);
+  if (S.hub === 'quotes') return viewQuotes(g);
+  if (S.hub === 'lists') return viewLists(g);
+  const u = S.user, key = iso(new Date()), q = questionFor(key), ans = S.day.answers || {}, mine = ans[u.id];
+  const others = Object.entries(ans).filter(([id]) => id !== u.id);
+  const now = Date.now(), caps = S.data.capsules, sealed = caps.filter(c => c.openAt > now).length, opened = caps.length - sealed;
+  const nextCap = caps.filter(c => c.openAt > now)[0];
+  return `<div class="qday">
+      <div class="eyebrow">${icon('question', 15)} שאלת היום · ${esc(new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }))}</div>
+      <h2 dir="auto">${esc(q)}</h2>
+      ${mine ? `<div class="answers">${[[u.id, mine]].concat(others).map(([id, a]) => { const m = S.members[id] || { id }; return `<div class="ans">${avatar(m, 30)}<div><b>${id === u.id ? 'את/ה' : esc(first(nameOf(m)))}</b><p dir="auto">${linkify(a.t)}</p></div></div>`; }).join('')}</div>
+        ${others.length ? '' : '<p class="muted">עוד אף אחד לא ענה. התשובות שלהם יופיעו כאן.</p>'}`
+      : `<form id="day-form" class="day-form"><textarea id="day-in" data-draft="day" rows="2" placeholder="התשובה שלך…" aria-label="התשובה שלך" dir="auto" maxlength="400"></textarea><button class="btn filled sm">שליחה</button></form>
+        <div class="locked-ans">${others.length ? `${icon('lock', 15)} ${others.length} ${others.length === 1 ? 'ענה' : 'ענו'}. התשובות ייחשפו אחרי שתענו.` : 'תהיו הראשונים לענות. כל יום שאלה חדשה לכל המשפחה.'}</div>`}
+    </div>
+    <div class="hub-grid">
+      <button class="hub-tile" data-a="open-hub" data-v="capsules" style="--c:var(--g-purple)"><span class="hub-ic">${icon('capsule', 26)}</span><b>קפסולות זמן</b><span>${caps.length ? `${sealed} נעולות${opened ? ` · ${opened} נפתחו` : ''}` : 'מכתב למשפחה של העתיד'}</span>${nextCap ? `<span class="hub-next">הבאה בעוד ${Math.max(1, Math.ceil((nextCap.openAt - now) / 864e5))} ימים</span>` : ''}</button>
+      <button class="hub-tile" data-a="open-hub" data-v="quotes" style="--c:var(--g-pink)"><span class="hub-ic">${icon('quote', 26)}</span><b>מה הילדים אמרו</b><span>${S.data.quotes.length ? `${S.data.quotes.length} ציטוטים` : 'המשפטים שלא רוצים לשכוח'}</span></button>
+      <button class="hub-tile" data-a="open-hub" data-v="lists" style="--c:var(--g-teal)"><span class="hub-ic">${icon('list', 26)}</span><b>רשימות</b><span>${S.data.lists.length ? `${S.data.lists.length} רשימות` : 'קניות, מטלות, מתנות'}</span></button>
+      <button class="hub-tile" data-a="checkin" style="--c:var(--g-green)"><span class="hub-ic">${icon('shield', 26)}</span><b>הגעתי בשלום</b><span>כולם יידעו בלחיצה אחת</span></button>
+    </div>`;
+}
+
+function viewCapsules(g) {
+  const u = S.user, now = Date.now(), caps = S.data.capsules;
+  const intro = `<p class="hub-intro">כותבים מכתב או שומרים תמונה, ובוחרים מתי לפתוח: בעוד שנה, ליום הולדת 18, לחתונה. עד אז אף אחד לא יכול לקרוא, גם לא מנהל הקבוצה. הנעילה נאכפת בשרת.</p>`;
+  if (!caps.length) return intro + `<div class="empty">${icon('capsule', 52, 1.4)}<b>עוד אין קפסולות</b><span>כתבו משהו שהמשפחה תפתח בעתיד.</span><button class="btn filled sm" data-a="new-capsule">קפסולה חדשה</button></div>`;
+  return intro + `<div class="caps">${caps.map(c => {
+    const open = c.openAt <= now, days = Math.ceil((c.openAt - now) / 864e5), by = S.members[c.by] || { id: c.by };
+    const d = new Date(c.openAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+    return `<div class="cap${open ? ' open' : ''}"><button class="cap-main" data-a="open-capsule" data-v="${esc(c.id)}">
+        <span class="cap-ic">${icon(open ? 'capsule' : 'lock', 26)}</span>
+        <span class="body"><b dir="auto">${esc(c.title)}</b><span class="sub">${open ? `נפתחה ב-${d}` : `נפתחת ב-${d} · בעוד ${days > 365 ? `${Math.floor(days / 365)} שנים` : `${days} ימים`}`}</span><span class="sub">מאת ${c.by === u.id ? 'את/ה' : esc(nameOf(by))}${c.to ? ` · ל${esc(c.to)}` : ''}${c.hasImage ? ' · 📷' : ''}</span></span>
+        ${open ? `<span class="pill">פתיחה</span>` : ''}</button>
+      ${c.by === u.id || isOwner(g) ? `<button class="icon-btn muted" data-a="capsule-menu" data-v="${esc(c.id)}" aria-label="אפשרויות">${icon('more', 20)}</button>` : ''}</div>`;
+  }).join('')}</div>`;
+}
+async function openCapsule(id) {
+  const c = S.data.capsules.find(x => x.id === id); if (!c) return;
+  const open = c.openAt <= Date.now();
+  if (!open && c.by !== me()) { const days = Math.ceil((c.openAt - Date.now()) / 864e5); hud(`🔒 נעולה עוד ${days} ימים`, true); return; }
+  let body = null;
+  try { body = await be.capsuleBody(S.gid, id); } catch (e) { hud('הקפסולה עדיין נעולה', true); return; }
+  if (!body) { hud('לא מצאנו את התוכן', true); return; }
+  haptic([20, 40, 20]);
+  const by = S.members[c.by] || { id: c.by };
+  formSheet({ title: c.title, tall: true,
+    body: `<div class="cap-letter">${!open ? `<div class="locked-ans">${icon('lock', 15)} רק את/ה רואה את זה עד ${esc(new Date(c.openAt).toLocaleDateString('he-IL'))}</div>` : `<div class="cap-burst">✨</div>`}
+      ${c.to ? `<div class="eyebrow">ל${esc(c.to)}</div>` : ''}
+      ${body.text ? `<p dir="auto">${linkify(body.text)}</p>` : ''}
+      ${body.image ? `<img src="${body.image}" alt="תמונה מהקפסולה">` : ''}
+      <div class="sig">${esc(nameOf(by))} · נכתב ב-${esc(new Date(c.createdAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' }))}</div></div>` });
+}
+function capsuleForm() {
+  let image = '';
+  const plus = (y, m) => { const d = new Date(); d.setFullYear(d.getFullYear() + (y || 0)); d.setMonth(d.getMonth() + (m || 0)); return iso(d); };
+  const tomorrow = iso(new Date(Date.now() + 864e5));
+  const fs = formSheet({ title: 'קפסולת זמן', action: 'נעילה', tall: true,
+    body: `<p class="hub-intro" style="margin-top:4px">מה שתכתבו כאן יינעל עד התאריך שתבחרו. אף אחד לא יוכל לקרוא לפני כן.</p>
+      <div class="section-h">כותרת</div><div class="list"><div class="field"><input id="cf-t" maxlength="60" placeholder="לנועה, ליום הולדת 18" autofocus></div></div>
+      <div class="section-h">למי (לא חובה)</div><div class="list"><div class="field"><input id="cf-to" maxlength="40" placeholder="נועה / כל המשפחה"></div></div>
+      <div class="section-h">המכתב</div><div class="list"><div class="field"><textarea id="cf-x" rows="6" maxlength="5000" placeholder="מה הייתם רוצים להגיד להם בעתיד?" dir="auto" style="padding:10px 0"></textarea></div></div>
+      <div class="btn-row" style="margin-top:10px"><button type="button" class="btn tinted sm" id="cf-img">${icon('camera', 18)} הוספת תמונה</button></div><div id="cf-prev"></div>
+      <div class="section-h">מתי לפתוח</div>
+      <div class="chips">${[['בעוד חודש', 0, 1], ['בעוד שנה', 1, 0], ['בעוד 5 שנים', 5, 0], ['בעוד 10 שנים', 10, 0], ['בעוד 18 שנה', 18, 0]].map(([l, y, m]) => `<button type="button" class="chip" data-d="${plus(y, m)}">${l}</button>`).join('')}</div>
+      <div class="list" style="margin-top:10px"><div class="field"><label for="cf-d">תאריך</label><input id="cf-d" type="date" min="${tomorrow}" value="${plus(1, 0)}"></div></div>`,
+    async onOk(f) {
+      const title = f.querySelector('#cf-t').value.trim(), text = f.querySelector('#cf-x').value.trim(), date = f.querySelector('#cf-d').value;
+      if (!title) { hud('תנו כותרת לקפסולה', true); return false; }
+      if (!text && !image) { hud('כתבו משהו או הוסיפו תמונה', true); return false; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < tomorrow) { hud('בחרו תאריך עתידי', true); return false; }
+      await be.addCapsule(S.gid, { title, to: f.querySelector('#cf-to').value.trim(), text, image, openAt: date });
+      haptic([30, 60, 30]); hud('הקפסולה ננעלה 🔒');
+    } });
+  fs.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { fs.querySelector('#cf-d').value = b.dataset.d; });
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => { const file = inp.files[0]; if (!file) return; try { image = (await chatImage(file)).data; fs.querySelector('#cf-prev').innerHTML = `<div class="prev" style="margin-top:10px"><img src="${image}" alt="התמונה שנבחרה"></div>`; } catch (e) { hud('לא הצלחנו לפתוח את התמונה', true); } };
+  fs.querySelector('#cf-img').onclick = () => inp.click();
+}
+
+function viewQuotes(g) {
+  const u = S.user, qs = S.data.quotes;
+  if (!qs.length) return `<p class="hub-intro">הילדים אומרים דברים שאסור לשכוח. שומרים כאן את המשפט, מי אמר ובאיזה גיל, וזה נשאר לתמיד.</p><div class="empty">${icon('quote', 52, 1.4)}<b>עוד אין ציטוטים</b><span>מה הילדים אמרו היום?</span><button class="btn filled sm" data-a="new-quote">ציטוט חדש</button></div>`;
+  return `<div class="quotes">${qs.map(q => {
+    const laughed = q.laughs.includes(u.id);
+    return `<figure class="qcard"><blockquote dir="auto">${esc(q.text)}</blockquote>
+      <figcaption>— ${esc(q.who)}${q.age ? `, ${esc(q.age)}` : ''} <span>· ${esc(new Date(q.createdAt).toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' }))}</span></figcaption>
+      <div class="qact"><button class="rchip${laughed ? ' on' : ''}" data-a="laugh" data-v="${esc(q.id)}" aria-pressed="${laughed}">😂${q.laughs.length ? ` ${q.laughs.length}` : ''}</button>${q.by === u.id || isOwner(g) ? `<button class="icon-btn muted sm" data-a="quote-menu" data-v="${esc(q.id)}" aria-label="אפשרויות">${icon('more', 18)}</button>` : ''}</div></figure>`;
+  }).join('')}</div>`;
+}
+function quoteForm() {
+  const g = group(), names = [...new Set(g.members.map(id => first(nameOf(S.members[id]))).filter(Boolean))];
+  formSheet({ title: 'ציטוט חדש', action: 'שמירה',
+    body: `<div class="section-h">מה נאמר</div><div class="list"><div class="field"><textarea id="qf-x" rows="3" maxlength="400" placeholder="״אמא, למה הירח הולך אחרינו?״" dir="auto" autofocus style="padding:10px 0"></textarea></div></div>
+      <div class="section-h">מי אמר</div><div class="list"><div class="field"><input id="qf-w" maxlength="30" placeholder="השם" list="qf-names"><datalist id="qf-names">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+      <div class="field"><label for="qf-a">גיל</label><input id="qf-a" maxlength="20" placeholder="למשל: בן 4"></div></div>`,
+    async onOk(f) {
+      const text = f.querySelector('#qf-x').value.trim(), who = f.querySelector('#qf-w').value.trim();
+      if (!text) { hud('כתבו את הציטוט', true); return false; }
+      if (!who) { hud('מי אמר את זה?', true); return false; }
+      await be.addQuote(S.gid, { text, who, age: f.querySelector('#qf-a').value.trim() }); haptic(12); hud('נשמר לתמיד ✨');
+    } });
+}
+
 /* ---------- actions ---------- */
 const listOf = id => S.data.lists.find(l => l.id === id);
 const A = {
@@ -754,8 +911,8 @@ const A = {
   back,
   'root-tab': b => { if (S.tab === b.dataset.v) { scrollTo(0); return; } S.tab = b.dataset.v; S.anim = 'fade'; try { history.replaceState({ screen: 'root', tab: S.tab }, ''); } catch (e) {} render(true); },
   gtab: b => {
-    if (S.gtab === b.dataset.v) { scrollTo(S.gtab === 'chat' ? scrollMax() : 0); return; }
-    S.gtab = b.dataset.v; S.reply = null; if (S.gtab === 'chat') markGroupChatSeen(); S.anim = 'fade';
+    if (S.gtab === b.dataset.v && !S.hub) { scrollTo(S.gtab === 'chat' ? scrollMax() : 0); return; }
+    S.gtab = b.dataset.v; S.reply = null; S.hub = null; if (S.gtab === 'chat') markGroupChatSeen(); S.anim = 'fade';
     try { history.replaceState(Object.assign({}, history.state, { gtab: S.gtab }), ''); } catch (e) {}
     render(true);
   },
@@ -779,7 +936,41 @@ const A = {
       }
     } else startCall(id, a.k);
   },
-  pick: b => { S.pickFor = b.dataset.v; fileEl.multiple = b.dataset.v === 'album'; fileEl.value = ''; fileEl.click(); },
+  pick: b => { S.pickFor = b.dataset.v; fileEl.accept = 'image/*'; fileEl.multiple = b.dataset.v === 'album'; fileEl.value = ''; fileEl.click(); },
+  'pick-video': b => { S.pickFor = b.dataset.v + '-video'; fileEl.accept = 'video/*'; fileEl.multiple = false; fileEl.value = ''; fileEl.click(); },
+  'clear-vid': () => { S.vid = null; render(); },
+  attach: async () => {
+    const acts = [{ label: '📷 תמונה', k: 'pick' }, { label: '🎬 סרטון (עד דקה)', k: 'pick-video' }, { label: '✅ הגעתי בשלום', k: 'checkin' }];
+    const r = await confirmSheet({ actions: acts }); const a = acts[r]; if (!a) return;
+    A[a.k]({ dataset: { v: 'chat' } });
+  },
+  checkin: async () => { try { await send({ kind: 'checkin', text: '' }); haptic(20); hud('כולם יודעים שהגעת בשלום'); } catch (e) {} },
+  emoji: b => emojiSheet(b.dataset.v),
+  'play-video': async b => {
+    const kind = b.dataset.k, id = b.dataset.v;
+    const owner = kind === 'msg' ? msgById(id) : S.data.posts.find(p => p.id === id);
+    const v = owner && owner.video; if (!v) return;
+    const sc = kind === 'msg' ? scope() : { t: 'g', id: S.gid };
+    try {
+      if (!vcache[v.id]) { vprog('טוען סרטון…'); vcache[v.id] = await dataURLToObjectURL(await be.loadVideo(sc, v)); }
+      S.viewer = { video: vcache[v.id], info: `${nameOf(S.members[owner.authorId])} · ${dayLabel(owner.createdAt)}` }; renderViewer();
+    } catch (e) { hud(e && e.code === 'missing' ? 'הסרטון כבר לא זמין' : 'לא הצלחנו לטעון את הסרטון', true); }
+    finally { vprog(null); }
+  },
+  // Together tab
+  'open-hub': b => go('group', { gid: S.gid, gtab: 'together', hub: b.dataset.v }),
+  'new-capsule': () => capsuleForm(),
+  'open-capsule': b => openCapsule(b.dataset.v),
+  'capsule-menu': async b => {
+    const c = S.data.capsules.find(x => x.id === b.dataset.v); if (!c) return;
+    if (await confirmSheet({ title: c.title, msg: 'הקפסולה והתוכן שבה יימחקו.', actions: [{ label: 'מחיקת הקפסולה', destructive: true }] }) === 0) { try { await be.deleteCapsule(S.gid, c.id); hud('הקפסולה נמחקה'); } catch (e) { fail(e); } }
+  },
+  'new-quote': () => quoteForm(),
+  laugh: async b => { const q = S.data.quotes.find(x => x.id === b.dataset.v); if (!q) return; haptic(); try { await be.laugh(S.gid, q); } catch (e) { fail(e); } },
+  'quote-menu': async b => {
+    const q = S.data.quotes.find(x => x.id === b.dataset.v); if (!q) return;
+    if (await confirmSheet({ title: 'למחוק את הציטוט?', actions: [{ label: 'מחיקה', destructive: true }] }) === 0) { try { await be.deleteQuote(S.gid, q.id); hud('נמחק'); } catch (e) { fail(e); } }
+  },
   'clear-img': () => { S.img = null; render(); },
   'poll-toggle': () => { S.poll = S.poll ? null : { options: ['', ''] }; if (S.poll) S.img = null; render(); const t = $('#post-text'); if (t) t.focus({ preventScroll: true }); },
   'poll-add': () => { if (S.poll && S.poll.options.length < 5) { S.poll.options.push(''); render(); const ins = $$('[data-poll]'); ins[ins.length - 1].focus(); } },
@@ -793,7 +984,7 @@ const A = {
   },
   'view-img': b => { S.viewer = { id: b.dataset.v }; renderViewer(); },
   'view-src': b => { const m = msgById(b.dataset.v); if (m && m.image) { S.viewer = { src: m.image, info: `${nameOf(S.members[m.authorId])} · ${dayLabel(m.createdAt)}` }; renderViewer(); } },
-  'viewer-close': () => { S.viewer = null; renderViewer(); },
+  'viewer-close': () => { const vv = $('.viewer video'); if (vv) vv.pause(); S.viewer = null; renderViewer(); },
   'viewer-step': b => { const l = S.data.images, i = l.findIndex(x => x.id === S.viewer.id) + +b.dataset.v; if (l[i]) { S.viewer.id = l[i].id; renderViewer(); } },
   'viewer-del': async () => {
     const im = S.data.images.find(x => x.id === S.viewer.id); if (!im) return;
@@ -843,6 +1034,10 @@ const A = {
   'call-flip': () => calls && calls.flip()
 };
 const F = {
+  'day-form': async () => {
+    const el = $('#day-in'), t = el.value.trim(); if (!t) { el.focus(); return; }
+    try { await be.answerDay(S.gid, iso(new Date()), t); S.drafts.day = ''; haptic(12); hud('התשובות של כולם נחשפו'); } catch (e) { fail(e); }
+  },
   'local-login': async () => { const n = $('#local-name').value.trim(); if (!n) { $('#local-name').focus(); hud('כתבו את השם שלכם', true); return; } await be.signIn(n); },
   'post-form': async () => {
     const text = (S.drafts.post || '').trim();
@@ -851,11 +1046,12 @@ const F = {
       poll = S.poll.options.map(o => o.trim()).filter(Boolean);
       if (!text) { hud('כתבו את השאלה של הסקר', true); $('#post-text').focus(); return; }
       if (poll.length < 2) { hud('צריך לפחות שתי אפשרויות', true); return; }
-    } else if (!text && !S.img) return;
+    } else if (!text && !S.img && !S.vid) return;
     S.busy = true; render();
-    try { await be.addPost(S.gid, { text, image: S.img, poll }); S.drafts.post = ''; S.img = null; S.poll = null; haptic(12); hud(poll ? 'הסקר פורסם' : 'פורסם'); }
+    if (S.vid) vprog('מעלה את הסרטון…');
+    try { await be.addPost(S.gid, { text, image: S.img, video: S.vid, poll }); S.drafts.post = ''; S.img = null; S.vid = null; S.poll = null; haptic(12); hud(poll ? 'הסקר פורסם' : 'פורסם'); }
     catch (e) { fail(e); }
-    finally { S.busy = false; render(); }
+    finally { S.busy = false; vprog(null); render(); }
   },
   'chat-form': async () => {
     const k = draftKey(), t = (S.drafts[k] || '').trim(); if (!t) return;
@@ -900,6 +1096,23 @@ document.addEventListener('keydown', e => {
   if (S.viewer && !S.viewer.src && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) A['viewer-step']({ dataset: { v: e.key === 'ArrowLeft' ? '1' : '-1' } });
 });
 fileEl.addEventListener('change', async () => {
+  if (S.pickFor && S.pickFor.endsWith('-video')) {
+    const file = fileEl.files[0], target = S.pickFor.replace('-video', ''); if (!file) return;
+    try {
+      vprog('מעבד סרטון…', 0);
+      const vid = await prepVideo(file, p => vprog('מעבד סרטון…', p));
+      if (target === 'post') { S.vid = vid; S.img = null; S.poll = null; vprog(null); render(); return; }
+      vprog('שולח סרטון…');
+      const k = draftKey(), cap = (S.drafts[k] || '').trim(); S.drafts[k] = '';
+      await send(Object.assign({ video: vid }, cap ? { text: cap } : {}));
+    } catch (e) {
+      const c = e && e.code;
+      if (c === 'long') hud(`אפשר לשלוח סרטון של עד ${VIDEO_MAX_SEC} שניות`, true);
+      else if (c === 'unsupported' || c === 'decode' || c === 'type') hud('הדפדפן הזה לא מצליח לעבד את הסרטון', true);
+      else if (c !== 'local') fail(e);
+    } finally { vprog(null); }
+    return;
+  }
   const files = [...fileEl.files].filter(f => f.type.startsWith('image/')); if (!files.length) return;
   if (S.pickFor === 'post') { try { S.img = await prepImage(files[0]); render(); const t = $('#post-text'); if (t) t.focus({ preventScroll: true }); } catch (e) { hud('לא הצלחנו לפתוח את התמונה', true); } return; }
   if (S.pickFor === 'chat') {

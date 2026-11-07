@@ -9,11 +9,12 @@ export function LocalBackend() {
   const id = () => 'l' + (++uid) + Math.random().toString(36).slice(2, 6);
   const emit = k => { const s = L.get(k); if (s) s.forEach(f => f()); };
   const on = (k, f) => { if (!L.has(k)) L.set(k, new Set()); L.get(k).add(f); f(); return () => L.get(k).delete(f); };
-  const box = gid => sub[gid] || (sub[gid] = { posts: [], comments: {}, messages: [], events: [], images: [], imageData: {}, lists: [] });
+  const box = gid => sub[gid] || (sub[gid] = { posts: [], comments: {}, messages: [], events: [], images: [], imageData: {}, lists: [], capsules: [], capsuleBody: {}, quotes: [], days: {} });
+  const blobs = {};
   const touch = (gid, text) => { const g = groups[gid]; if (g) { g.lastMessage = text.slice(0, 90); g.lastAt = Date.now(); g.lastBy = 'me'; emit('groups'); } };
   const sort = {
     posts: (a, b) => b.createdAt - a.createdAt, messages: (a, b) => b.createdAt - a.createdAt, images: (a, b) => b.createdAt - a.createdAt,
-    lists: (a, b) => a.createdAt - b.createdAt, events: (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+    lists: (a, b) => a.createdAt - b.createdAt, capsules: (a, b) => a.openAt - b.openAt, quotes: (a, b) => b.createdAt - a.createdAt, events: (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   };
   const copy = x => JSON.parse(JSON.stringify(x));
   const noSite = () => { const e = new Error('local'); e.code = 'local'; throw e; };
@@ -45,6 +46,7 @@ export function LocalBackend() {
       const imageId = o.image ? await this.addPhoto(gid, o.image) : '';
       const p = { id: id(), authorId: 'me', text: o.text || '', imageId, createdAt: Date.now(), likes: [], commentCount: 0 };
       if (o.poll) { p.poll = { options: o.poll }; p.votes = {}; }
+      if (o.video) { const vid = id(); blobs[vid] = o.video.data; p.video = { id: vid, chunks: 1, thumb: o.video.thumb, dur: o.video.dur, w: o.video.w, h: o.video.h, mime: o.video.mime }; }
       box(gid).posts.push(p); emit(gid + ':posts'); touch(gid, o.text ? `${me.name}: ${o.text}` : `${me.name} שיתף/ה תמונה`);
     },
     async toggleLike(gid, p) { const x = box(gid).posts.find(q => q.id === p.id); if (!x) return; x.likes = x.likes.includes('me') ? x.likes.filter(i => i !== 'me') : x.likes.concat('me'); emit(gid + ':posts'); },
@@ -63,9 +65,18 @@ export function LocalBackend() {
     async deleteList(gid, lid) { box(gid).lists = box(gid).lists.filter(x => x.id !== lid); emit(gid + ':lists'); },
 
     watchMessages(s, cb) { if (s.t !== 'g') return () => {}; return on(s.id + ':messages', () => cb(box(s.id).messages.slice().sort(sort.messages).map(copy))); },
-    async sendMessage(s, m) { if (s.t !== 'g') noSite(); box(s.id).messages.push(Object.assign({ id: id(), authorId: 'me', createdAt: Date.now(), reactions: {} }, copy(m))); emit(s.id + ':messages'); touch(s.id, `${me.name}: ${m.text || (m.image ? '📷 תמונה' : '🎤 הודעה קולית')}`); },
+    async sendMessage(s, m) { if (s.t !== 'g') noSite(); m = copy(m); if (m.video && m.video.data) { const vid = id(); blobs[vid] = m.video.data; m.video = { id: vid, chunks: 1, thumb: m.video.thumb, dur: m.video.dur, w: m.video.w, h: m.video.h, mime: m.video.mime }; } box(s.id).messages.push(Object.assign({ id: id(), authorId: 'me', createdAt: Date.now(), reactions: {} }, m)); emit(s.id + ':messages'); touch(s.id, `${me.name}: ${m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : '🎤 הודעה קולית')}`); },
     async react(s, mid, emoji) { const m = box(s.id).messages.find(x => x.id === mid); if (m) { if (emoji) m.reactions.me = emoji; else delete m.reactions.me; emit(s.id + ':messages'); } },
-    async deleteMessage(s, mid) { box(s.id).messages = box(s.id).messages.filter(x => x.id !== mid); emit(s.id + ':messages'); },
+    async deleteMessage(s, m) { box(s.id).messages = box(s.id).messages.filter(x => x.id !== m.id); emit(s.id + ':messages'); },
+    async loadVideo(s, v) { return blobs[v.id] || ''; },
+    async addCapsule(gid, o) { const cid = id(); box(gid).capsules.push({ id: cid, by: 'me', title: o.title, to: o.to || '', openAt: new Date(o.openAt + 'T00:00:00').getTime(), hasImage: !!o.image, createdAt: Date.now() }); box(gid).capsuleBody[cid] = { by: 'me', text: o.text || '', image: o.image || '' }; emit(gid + ':capsules'); touch(gid, `${me.name} נעל/ה קפסולת זמן: ${o.title}`); },
+    async capsuleBody(gid, cid) { return copy(box(gid).capsuleBody[cid] || null); },
+    async deleteCapsule(gid, cid) { box(gid).capsules = box(gid).capsules.filter(x => x.id !== cid); emit(gid + ':capsules'); },
+    watchDay(gid, key, cb) { return on(gid + ':day:' + key, () => cb(copy(box(gid).days[key] || { answers: {} }))); },
+    async answerDay(gid, key, tx) { const d = box(gid).days[key] = box(gid).days[key] || { answers: {} }; d.answers.me = { t: tx, at: Date.now() }; emit(gid + ':day:' + key); },
+    async addQuote(gid, o) { box(gid).quotes.push({ id: id(), text: o.text, who: o.who, age: o.age || '', by: 'me', laughs: [], createdAt: Date.now() }); emit(gid + ':quotes'); },
+    async laugh(gid, q) { const x = box(gid).quotes.find(y => y.id === q.id); if (x) { x.laughs = x.laughs.includes('me') ? [] : ['me']; emit(gid + ':quotes'); } },
+    async deleteQuote(gid, qid) { box(gid).quotes = box(gid).quotes.filter(x => x.id !== qid); emit(gid + ':quotes'); },
     async setTyping() {},
     async markRead() {},
     watchChats(cb) { cb([]); return () => {}; },

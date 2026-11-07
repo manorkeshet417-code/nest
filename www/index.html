@@ -414,6 +414,92 @@ button.row:active{background:var(--fill2)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.35)}50%{box-shadow:0 0 0 22px rgba(255,255,255,0)}}
 :root:not(.native) .call{padding-top:110px}
 @media (prefers-reduced-motion: reduce){.incoming .call-av,.rec-dot{animation:none}}
+
+/* =================== v3: videos, emoji, Together (question of the day, capsules, quotes, check-in) =================== */
+.btn.ic{padding:0;width:40px;min-height:36px}
+.btn.sm .spinner{width:16px;height:16px;border-width:2px}
+.spinner.sm{width:16px;height:16px;border-width:2px}
+.muted{color:var(--label2);font-size:14px}
+
+/* videos */
+.vthumb{position:relative;display:block;width:100%;overflow:hidden;background:#000}
+.vthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.vplay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;display:grid;place-items:center;color:#fff;background:rgba(0,0,0,.45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding-left:3px}
+.vdur{position:absolute;bottom:8px;left:8px;color:#fff;background:rgba(0,0,0,.55);font-size:12px;font-weight:600;padding:2px 7px;border-radius:999px;font-variant-numeric:tabular-nums}
+.post-vid{max-height:520px}
+.mvid .vdur{left:auto;right:8px}
+.mvid{border-radius:15px;max-width:250px;max-height:340px;margin:-1px -4px 4px}
+.bubble.pic .mvid{margin:0}
+.prev{position:relative}
+.prev .vplay{pointer-events:none}
+.vprog{position:fixed;top:calc(env(safe-area-inset-top,0px) + 62px);left:50%;transform:translateX(-50%);z-index:85;display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap}
+.vprog svg{color:var(--accent)}
+.vprog b{font-variant-numeric:tabular-nums;color:var(--accent);min-width:3ch;text-align:end}
+:root:not(.native) .vprog{top:62px}
+.viewer video{max-width:100%;max-height:100%;background:#000}
+
+/* big emoji messages */
+.bubble.jumbo{background:none!important;padding:0 2px;box-shadow:none}
+.bubble.jumbo .mtext{font-size:46px;line-height:1.15}
+.msg.mine .bubble.jumbo{color:var(--label)}
+.bubble.jumbo .msg-time{color:var(--label2)}
+.sys-pill.ok{color:var(--g-green)}
+
+/* emoji picker */
+.emo-tabs{display:flex;gap:4px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none;position:sticky;top:-4px;background:var(--bg);z-index:1}
+.emo-tabs::-webkit-scrollbar{display:none}
+.emo-tabs button{flex:none;width:42px;height:38px;border-radius:10px;font-size:22px;display:grid;place-items:center}
+.emo-tabs button[aria-selected="true"]{background:var(--fill)}
+.emo-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
+.emo-grid button{aspect-ratio:1;font-size:28px;border-radius:10px;display:grid;place-items:center}
+.emo-grid button:active{background:var(--fill);transform:scale(1.15)}
+.emo-h{grid-column:1/-1;font-size:13px;color:var(--label2);font-weight:600;padding:4px 4px 6px}
+
+/* Together */
+.qday{background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 18%,var(--bg2)),var(--bg2) 70%);border-radius:var(--r-card);padding:16px;display:flex;flex-direction:column;gap:10px}
+.qday .eyebrow{display:flex;align-items:center;gap:5px;color:var(--accent)}
+.qday h2{font-size:24px;font-weight:700;line-height:1.25}
+.day-form{display:flex;gap:8px;align-items:flex-end}
+.day-form textarea{flex:1;min-width:0;border:0;border-radius:14px;background:var(--bg);padding:10px 12px;font-size:16px;resize:none;outline:none;max-height:140px}
+.day-form textarea:focus{box-shadow:inset 0 0 0 2px var(--accent)}
+.locked-ans{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--label2)}
+.answers{display:flex;flex-direction:column;gap:10px}
+.ans{display:flex;gap:10px;align-items:flex-start}
+.ans b{font-size:13px}
+.ans p{font-size:16px;line-height:1.35;white-space:pre-wrap;overflow-wrap:anywhere}
+.hub-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.hub-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:14px;border-radius:var(--r-card);background:var(--bg2);text-align:start;min-height:132px}
+.hub-tile:active{transform:scale(.98)}
+.hub-ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;background:linear-gradient(180deg,color-mix(in srgb,var(--c) 75%,#fff),var(--c));margin-bottom:6px}
+.hub-tile b{font-size:16px}
+.hub-tile span{font-size:13px;color:var(--label2);line-height:1.3}
+.hub-tile .hub-next{color:var(--c);font-weight:600}
+.hub-intro{color:var(--label2);font-size:15px;line-height:1.45;padding:2px 4px 12px}
+
+/* time capsules */
+.caps{display:flex;flex-direction:column;gap:10px}
+.cap{display:flex;align-items:center;background:var(--bg2);border-radius:var(--r-card);padding-inline-end:6px}
+.cap-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:14px;text-align:start}
+.cap-ic{width:48px;height:48px;flex:none;border-radius:50%;display:grid;place-items:center;color:var(--g-purple);background:color-mix(in srgb,var(--g-purple) 16%,transparent)}
+.cap.open .cap-ic{color:#fff;background:linear-gradient(135deg,#bf5af2,#ff9f0a)}
+.cap .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cap .sub{font-size:13px;color:var(--label2)}
+.cap-letter{display:flex;flex-direction:column;gap:12px;padding:6px 2px 10px}
+.cap-letter p{font-size:18px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.cap-letter img{border-radius:16px;width:100%}
+.cap-burst{font-size:44px;text-align:center;animation:pop-in .6s cubic-bezier(.2,1.6,.3,1)}
+@keyframes pop-in{from{transform:scale(.2);opacity:0}to{transform:none;opacity:1}}
+.sig{font-size:14px;color:var(--label2);text-align:end;font-style:italic}
+
+/* family quotes */
+.quotes{display:flex;flex-direction:column;gap:12px}
+.qcard{margin:0;background:var(--bg2);border-radius:var(--r-card);padding:18px 18px 10px;position:relative}
+.qcard::before{content:"״";position:absolute;top:-6px;inset-inline-start:12px;font-size:64px;line-height:1;color:color-mix(in srgb,var(--g-pink) 45%,transparent);font-family:Georgia,serif}
+.qcard blockquote{margin:6px 0 8px;font-size:21px;font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.qcard figcaption{font-size:15px;color:var(--g-pink);font-weight:600}
+.qcard figcaption span{color:var(--label2);font-weight:400}
+.qact{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+@media (prefers-reduced-motion: reduce){.cap-burst{animation:none}}
 </style>
 
 <div class="stage">
