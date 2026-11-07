@@ -309,6 +309,21 @@ function installHelp() {
 }
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (!S.booting && !typing()) softRender(); });
 window.addEventListener('appinstalled', () => { installEvt = null; hud('Nest נוספה למסך הבית'); softRender(); });
+// Camera/microphone permission as the browser reports it (not every browser can tell)
+async function refreshMediaPerm() {
+  if (!navigator.permissions || !navigator.permissions.query) { S.mediaPerm = { mic: 'prompt', cam: 'prompt', unknown: true }; return; }
+  const q = async n => { try { const p = await navigator.permissions.query({ name: n }); p.onchange = () => refreshMediaPerm(); return p.state; } catch (e) { return 'prompt'; } };
+  const [mic, cam] = await Promise.all([q('microphone'), q('camera')]);
+  const changed = !S.mediaPerm || S.mediaPerm.mic !== mic || S.mediaPerm.cam !== cam;
+  S.mediaPerm = { mic, cam };
+  if (changed && S.screen === 'root' && S.tab === 'profile' && !typing()) softRender();
+}
+function mediaPermRow() {
+  const p = S.mediaPerm || {};
+  if (p.mic === 'granted' && p.cam === 'granted') return '<span class="val" style="color:var(--ok)">מאושר</span>';
+  if (p.mic === 'denied' || p.cam === 'denied') return '<span class="val" style="color:var(--red)">חסום</span><button class="btn tinted sm" data-a="media-fix">איך מתקנים</button>';
+  return '<button class="btn tinted sm" data-a="media-check">אישור</button>';
+}
 function viewProfile() {
   const u = S.user, live = be.mode === 'live', perm = 'Notification' in window ? Notification.permission : 'unsupported';
   const b = nextBirthday(u.birthday);
@@ -319,6 +334,9 @@ function viewProfile() {
   <div class="section-h">יום הולדת</div>
   <form id="bday-form" class="list"><div class="field"><label for="pf-bday">${icon('cake', 22)}</label><input id="pf-bday" type="date" value="${esc(u.birthday || '')}"><button class="btn tinted sm">שמירה</button></div></form>
   <p class="section-f">${b ? (b.days === 0 ? 'היום! מזל טוב 🎉' : `עוד ${b.days} ימים. `) + 'המשפחה תראה את התאריך בלוח האירועים.' : 'כך המשפחה תדע מתי לחגוג איתך. הוא יופיע בלוח האירועים של הקבוצות.'}</p>
+  <div class="section-h">מיקרופון ומצלמה</div>
+  <div class="list"><div class="row">${icon('video', 22)}<span class="body t">לשיחות ולהודעות קוליות</span>${mediaPermRow()}</div></div>
+  <p class="section-f">${S.mediaPerm && (S.mediaPerm.mic === 'denied' || S.mediaPerm.cam === 'denied') ? 'החסימה נשמרת בדפדפן. "איך מתקנים" מראה בדיוק איפה משחררים אותה.' : 'הדפדפן ישאל פעם אחת. לחצו "אפשר".'}</p>
   <div class="section-h">התראות</div>
   <div class="list"><div class="row">${icon('bell', 22)}<span class="body t">התראות על הודעות ושיחות</span>${perm === 'granted' ? '<span class="val">פעילות</span>' : perm === 'denied' ? '<span class="val">חסומות</span>' : perm === 'unsupported' ? '<span class="val">לא נתמך</span>' : '<button class="btn tinted sm" data-a="notif">הפעלה</button>'}</div></div>
   <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : 'ההתראות מגיעות כשהאפליקציה פתוחה ברקע.'}</p>
@@ -927,7 +945,7 @@ const listOf = id => S.data.lists.find(l => l.id === id);
 const A = {
   google: async b => { b.disabled = true; try { await be.signIn(); } catch (e) { if (!(e && (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request'))) fail(e); } finally { b.disabled = false; } },
   back,
-  'root-tab': b => { if (S.tab === b.dataset.v) { scrollTo(0); return; } S.tab = b.dataset.v; S.anim = 'fade'; try { history.replaceState({ screen: 'root', tab: S.tab }, ''); } catch (e) {} render(true); },
+  'root-tab': b => { if (S.tab === b.dataset.v) { scrollTo(0); return; } S.tab = b.dataset.v; if (S.tab === 'profile') refreshMediaPerm(); S.anim = 'fade'; try { history.replaceState({ screen: 'root', tab: S.tab }, ''); } catch (e) {} render(true); },
   gtab: b => {
     if (S.gtab === b.dataset.v && !S.hub) { scrollTo(S.gtab === 'chat' ? scrollMax() : 0); return; }
     S.gtab = b.dataset.v; S.reply = null; S.hub = null; if (S.gtab === 'chat') markGroupChatSeen(); S.anim = 'fade';
@@ -1033,6 +1051,21 @@ const A = {
   'delete-group': async () => { const g = group(); if (await confirmSheet({ title: `למחוק את "${g.name}"?`, msg: 'הקבוצה תיעלם לכל החברים, עם הפיד, הצ׳אט, האירועים, האלבום והרשימות. אי אפשר לבטל.', actions: [{ label: 'מחיקת הקבוצה', destructive: true }] }) === 0) { try { await be.deleteGroup(g); go('root'); hud('הקבוצה נמחקה'); } catch (e) { fail(e); } } },
   'leave-group': async () => { const g = group(); if (await confirmSheet({ title: `לצאת מ"${g.name}"?`, msg: 'כדי לחזור תצטרכו קוד הזמנה חדש.', actions: [{ label: 'יציאה מהקבוצה', destructive: true }] }) === 0) { try { await be.leaveGroup(g.id); go('root'); hud('יצאת מהקבוצה'); } catch (e) { fail(e); } } },
   'sign-out': async () => { if (await confirmSheet({ title: 'להתנתק?', msg: be.mode === 'live' ? 'הקבוצות והשיחות שלך נשארות. אפשר להיכנס שוב עם Google.' : 'בתצוגה המקדימה הכול יתחיל מחדש.', actions: [{ label: 'התנתקות' }] }) === 0) { stopAll(); await be.signOut(); } },
+  'media-check': async () => {
+    if (inAppBrowser()) { showMediaHelp(null, 'video'); return; }
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      st.getTracks().forEach(t => t.stop()); hud('המיקרופון והמצלמה מאושרים');
+    } catch (e) {
+      // a phone without a usable camera can still talk
+      if (/NotFound|NotReadable|Overconstrained/.test(e.name || '')) {
+        try { const a = await navigator.mediaDevices.getUserMedia({ audio: true }); a.getTracks().forEach(t => t.stop()); hud('המיקרופון מאושר. המצלמה לא זמינה כרגע', true); }
+        catch (x) { showMediaHelp(x, 'audio'); }
+      } else showMediaHelp(e, 'video');
+    }
+    await refreshMediaPerm(); render();
+  },
+  'media-fix': () => showMediaHelp({ name: 'NotAllowedError' }, 'video'),
   notif: async () => { try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
   install: async () => {
     if (installEvt) { const e = installEvt; e.prompt(); try { const c = await e.userChoice; if (c && c.outcome === 'accepted') LS.set('nest.noInstall', 1); } catch (x) {} installEvt = null; render(); return; }

@@ -282,10 +282,15 @@ export function mediaHelp(err, kind) {
   if (inAppBrowser()) return { title: 'צריך לפתוח בדפדפן', msg: `האפליקציה פתוחה בתוך אפליקציה אחרת (גוגל, וואטסאפ או אינסטגרם), ושם אין גישה ${what}. פתחו את התפריט (⋮ או ···) ובחרו "פתיחה ב-Chrome"${iosDevice() ? ' או "פתיחה ב-Safari"' : ''}.`, link: true };
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return { title: 'הדפדפן לא תומך', msg: 'הדפדפן הזה לא מאפשר שיחות. פתחו את Nest ב-Chrome' + (iosDevice() ? ' או ב-Safari' : '') + '.', link: true };
   if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') {
-    const how = installed()
-      ? (iosDevice() ? 'פתחו את "הגדרות" באייפון ← Safari ← מצלמה ומיקרופון ← "אפשר". אחר כך סגרו ופתחו את Nest.' : 'לחיצה ארוכה על האייקון של Nest ← "פרטי אפליקציה" (ⓘ) ← הרשאות ← אפשרו מיקרופון' + (kind === 'video' ? ' ומצלמה' : '') + '.')
-      : (iosDevice() ? 'הקישו על "aA" בשורת הכתובת ← "הגדרות אתר" ← מצלמה ומיקרופון ← "אפשר". אחר כך רעננו את הדף.' : 'הקישו על הסמל שמשמאל לכתובת (🔒 או ⚙) ← "הרשאות" ← אפשרו מיקרופון' + (kind === 'video' ? ' ומצלמה' : '') + '. אחר כך רעננו את הדף.');
-    return { title: `הגישה ${what} חסומה`, msg: `בעבר נבחר "חסימה" כשהדפדפן ביקש רשות. ${how}` };
+    // On Android an app installed from Chrome has no camera/mic entry of its own: Chrome holds those permissions
+    const both = kind === 'video' ? 'מיקרופון ומצלמה' : 'מיקרופון';
+    const how = iosDevice()
+      ? (installed() ? 'פתחו את "הגדרות" באייפון ← Safari ← מצלמה ומיקרופון ← "שאל" או "אפשר". אחר כך סגרו ופתחו את Nest.' : 'הקישו על "aA" בשורת הכתובת ← "הגדרות אתר" ← מצלמה ומיקרופון ← "אפשר". אחר כך רעננו את הדף.')
+      : (installed()
+        ? `ההרשאות של Nest נמצאות בתוך Chrome, לא בהגדרות האפליקציה: פתחו את Chrome ← ⋮ ← הגדרות ← הגדרות אתרים ← ${both} ← manorkeshet417-code.github.io ← "אפשר".`
+        : `הקישו על הסמל שמשמאל לכתובת (🔒 או ⚙) ← "הרשאות" ← אפשרו ${both}, ורעננו את הדף.`)
+        + ` אם זה עדיין חסום: הגדרות הטלפון ← אפליקציות ← Chrome ← הרשאות ← ${both} ← "אפשר".`;
+    return { title: `הגישה ${what} חסומה`, msg: `בעבר נבחר "חסימה" כשהדפדפן ביקש רשות, או שלדפדפן עצמו אין רשות. ${how}` };
   }
   if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return { title: kind === 'video' ? 'המצלמה תפוסה' : 'המיקרופון תפוס', msg: 'אפליקציה אחרת משתמשת בהם עכשיו (למשל שיחת וואטסאפ, זום או המצלמה). סגרו אותה ונסו שוב.' };
   if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') return { title: kind === 'video' ? 'לא נמצאה מצלמה' : 'לא נמצא מיקרופון', msg: 'לא מצאנו את ההתקן במכשיר הזה. ' + (kind === 'video' ? 'אפשר לנסות שיחה קולית במקום.' : '') };
