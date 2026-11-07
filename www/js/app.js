@@ -222,12 +222,16 @@ function updateSend() {
 
 // Inside the Google app (or WhatsApp/Instagram) the page runs in a built-in browser that can't install,
 // sign in with Google or use the microphone. These links hand the same address to the real browser.
+function chromeLink() {
+  const host = location.host, path = location.pathname + location.search;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'googlechromes://' + host + path
+    : 'intent://' + host + path + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(location.href) + ';end';
+}
 function openInBrowserBanner() {
   if (!inAppBrowser()) return '';
   const host = location.host, path = location.pathname + location.search;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const chrome = ios ? 'googlechromes://' + host + path
-    : 'intent://' + host + path + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(location.href) + ';end';
+  const chrome = chromeLink();
   return '<div class="openin" role="alert"><div class="openin-t"><b>פתחו את Nest ב-Chrome</b><span>כאן, בתוך ' + (/GSA\//.test(navigator.userAgent) ? 'אפליקציית Google' : 'האפליקציה הזו') + ', אי אפשר להתקין, להיכנס עם Google או להתקשר.</span></div>' +
     '<div class="openin-b"><a class="btn filled sm" href="' + esc(chrome) + '">פתיחה ב-Chrome</a>' +
     (ios ? '<a class="btn tinted sm" href="' + esc('x-safari-https://' + host + path) + '">פתיחה ב-Safari</a>' : '') +
@@ -354,6 +358,7 @@ function viewProfile() {
   <div class="list"><div class="row">${icon('bell', 22)}<span class="body t">התראות על הודעות ושיחות</span>${perm === 'granted' ? '<span class="val">פעילות</span>' : perm === 'denied' ? '<span class="val">חסומות</span>' : perm === 'unsupported' ? '<span class="val">לא נתמך</span>' : '<button class="btn tinted sm" data-a="notif">הפעלה</button>'}</div></div>
   <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : 'ההתראות מגיעות כשהאפליקציה פתוחה ברקע.'}</p>
   ${canOfferInstall() ? `<div class="section-h"></div><div class="list"><button class="row" data-a="install">${icon('sparkles', 22)}<span class="body t">הוספה למסך הבית</span><span class="chev">${icon('chev', 16)}</span></button></div>` : ''}
+  ${onSite && !standalone() ? `<div class="section-h">דפדפן</div><div class="list"><a class="row" href="${esc(chromeLink())}" style="text-decoration:none;color:inherit">${icon('link', 22)}<span class="body t">פתיחה ב-Chrome</span><span class="chev">${icon('chev', 16)}</span></a><button class="row" data-a="copy-link">${icon('copy', 22)}<span class="body t">העתקת הקישור</span></button></div><p class="section-f">${inAppBrowser() ? 'את/ה עכשיו בתוך אפליקציה אחרת. ב-Chrome אפשר להתקין, להיכנס עם Google ולהתקשר.' : 'את/ה כבר בדפדפן. אפשר להתקין: ⋮ ← "התקנת אפליקציה".'}</p>` : ''}
   <div class="section-h"></div><div class="list"><button class="row red" data-a="sign-out">התנתקות</button></div>
   <p class="section-f" style="text-align:center;padding-top:20px">Nest · הרשת של המשפחה</p>`;
 }
