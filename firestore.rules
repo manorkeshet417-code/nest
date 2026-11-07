@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// Ken: only members of a group can see or write anything inside it.
+// Paste this into Firebase console > Firestore Database > Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function groupDoc(gid) { return get(/databases/$(database)/documents/groups/$(gid)); }
+    function isMember(gid) { return signedIn() && me() in groupDoc(gid).data.members; }
+    function isOwner(gid) { return signedIn() && groupDoc(gid).data.ownerId == me(); }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // Profiles: name and photo only. Everyone signed in can read; each person writes their own.
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['name', 'photo'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 40;
+    }
+
+    // Invite codes: anyone signed in who knows the code can look up which group it opens.
+    match /invites/{code} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && getAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.ownerId == me();
+      allow delete: if signedIn() && groupDoc(resource.data.groupId).data.ownerId == me();
+    }
+
+    match /groups/{gid} {
+      allow read: if signedIn() && me() in resource.data.members;
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == me()
+        && request.resource.data.members == [me()];
+
+      allow update: if signedIn() && (
+        // the owner manages the group (but cannot hand it to someone else here)
+        (resource.data.ownerId == me() && request.resource.data.ownerId == resource.data.ownerId)
+        // anyone with the current invite code can add exactly themselves
+        || (onlyChanges(['members', 'joinCode'])
+            && request.resource.data.members == resource.data.members.concat([me()])
+            && request.resource.data.joinCode == resource.data.inviteCode)
+        // a member (not the owner) can leave
+        || (me() in resource.data.members && resource.data.ownerId != me()
+            && onlyChanges(['members'])
+            && request.resource.data.members == resource.data.members.removeAll([me()]))
+        // members update the "last activity" line shown in the group list
+        || (me() in resource.data.members && onlyChanges(['lastMessage', 'lastAt']))
+      );
+
+      allow delete: if signedIn() && resource.data.ownerId == me();
+
+      match /posts/{pid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.authorId == me();
+        allow update: if isMember(gid) && (resource.data.authorId == me() || onlyChanges(['likes', 'commentCount']));
+        allow delete: if isMember(gid) && (resource.data.authorId == me() || isOwner(gid));
+
+        match /comments/{cid} {
+          allow read: if isMember(gid);
+          allow create: if isMember(gid) && request.resource.data.authorId == me();
+          allow delete: if isMember(gid) && (resource.data.authorId == me() || isOwner(gid));
+        }
+      }
+
+      match /messages/{mid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.authorId == me();
+        allow delete: if isMember(gid) && (resource.data.authorId == me() || isOwner(gid));
+      }
+
+      match /events/{eid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.createdBy == me();
+        allow update: if isMember(gid) && (resource.data.createdBy == me() || onlyChanges(['rsvp']));
+        allow delete: if isMember(gid) && (resource.data.createdBy == me() || isOwner(gid));
+      }
+
+      match /images/{iid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+
+      match /imageData/{iid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+    }
+  }
+}

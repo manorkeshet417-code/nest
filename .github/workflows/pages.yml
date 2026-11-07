@@ -1,0 +1,44 @@
+name: Publish web app
+
+on:
+  push:
+    branches: [main]
+    paths: ['www/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          mkdir _site
+          cp -r www/. _site/
+          # index.html is written without a doctype (the Claude preview adds its own); browsers need one for standards mode
+          sed -i '1i <!doctype html>' _site/index.html
+          # install-as-app tags live only on the website, not in the Claude preview
+          sed -i 's#<meta charset="utf-8">#<meta charset="utf-8">\n<link rel="manifest" href="manifest.webmanifest">\n<link rel="icon" href="icons/favicon-32.png" sizes="32x32">\n<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">\n<meta name="theme-color" content="\#f2f2f7" media="(prefers-color-scheme: light)">\n<meta name="theme-color" content="\#000000" media="(prefers-color-scheme: dark)">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="קן">#' _site/index.html
+          grep -q 'rel="manifest"' _site/index.html
+          # a new cache name per commit, so phones drop the old copy
+          sed -i "s/ken-v1/ken-${GITHUB_SHA::8}/" _site/sw.js
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
