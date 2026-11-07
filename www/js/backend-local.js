@@ -9,12 +9,12 @@ export function LocalBackend() {
   const id = () => 'l' + (++uid) + Math.random().toString(36).slice(2, 6);
   const emit = k => { const s = L.get(k); if (s) s.forEach(f => f()); };
   const on = (k, f) => { if (!L.has(k)) L.set(k, new Set()); L.get(k).add(f); f(); return () => L.get(k).delete(f); };
-  const box = gid => sub[gid] || (sub[gid] = { posts: [], comments: {}, messages: [], events: [], images: [], imageData: {}, lists: [], capsules: [], capsuleBody: {}, quotes: [], days: {} });
+  const box = gid => sub[gid] || (sub[gid] = { posts: [], comments: {}, messages: [], events: [], images: [], imageData: {}, lists: [], capsules: [], capsuleBody: {}, quotes: [], days: {}, homework: [], exams: [], timetable: {} });
   const blobs = {};
   const touch = (gid, text) => { const g = groups[gid]; if (g) { g.lastMessage = text.slice(0, 90); g.lastAt = Date.now(); g.lastBy = 'me'; emit('groups'); } };
   const sort = {
     posts: (a, b) => b.createdAt - a.createdAt, messages: (a, b) => b.createdAt - a.createdAt, images: (a, b) => b.createdAt - a.createdAt,
-    lists: (a, b) => a.createdAt - b.createdAt, capsules: (a, b) => a.openAt - b.openAt, quotes: (a, b) => b.createdAt - a.createdAt, events: (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+    lists: (a, b) => a.createdAt - b.createdAt, capsules: (a, b) => a.openAt - b.openAt, quotes: (a, b) => b.createdAt - a.createdAt, homework: (a, b) => a.due < b.due ? -1 : 1, exams: (a, b) => a.date < b.date ? -1 : 1, events: (a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   };
   const copy = x => JSON.parse(JSON.stringify(x));
   const noSite = () => { const e = new Error('local'); e.code = 'local'; throw e; };
@@ -31,7 +31,7 @@ export function LocalBackend() {
     async users(ids) { const o = {}; ids.forEach(i => o[i] = i === 'me' ? copy(me) : { id: i, name: '' }); return o; },
 
     watchGroups(cb) { return on('groups', () => cb(Object.values(groups).filter(g => g.members.includes('me')).map(copy))); },
-    async createGroup(o) { const gid = id(); groups[gid] = { id: gid, name: o.name, emoji: o.emoji, color: o.color, ownerId: 'me', members: ['me'], inviteCode: newCode(), lastMessage: '', lastAt: Date.now(), lastBy: 'me', typing: {} }; box(gid); emit('groups'); return gid; },
+    async createGroup(o) { const gid = id(); groups[gid] = { id: gid, name: o.name, emoji: o.emoji, color: o.color, type: o.type || 'family', safety: o.safety !== false, ownerId: 'me', members: ['me'], inviteCode: newCode(), lastMessage: '', lastAt: Date.now(), lastBy: 'me', typing: {} }; box(gid); emit('groups'); return gid; },
     async findInvite(code) { const g = Object.values(groups).find(x => x.inviteCode === code); return g ? { groupId: g.id, groupName: g.name, emoji: g.emoji, color: g.color } : null; },
     async joinGroup(code, gid) { const g = groups[gid]; if (g && !g.members.includes('me')) g.members.push('me'); emit('groups'); },
     async updateGroup(g, p) { Object.assign(groups[g.id], p); emit('groups'); },
@@ -41,6 +41,12 @@ export function LocalBackend() {
     async deleteGroup(g) { delete groups[g.id]; delete sub[g.id]; emit('groups'); },
 
     watch(gid, kind, cb) { return on(gid + ':' + kind, () => cb(box(gid)[kind].slice().sort(sort[kind]).map(copy))); },
+    async addHomework(gid, o) { box(gid).homework.push({ id: id(), subject: o.subject, text: o.text, due: o.due, by: 'me', done: [], createdAt: Date.now() }); emit(gid + ':homework'); },
+    async toggleHomework(gid, h) { const x = box(gid).homework.find(q => q.id === h.id); if (x) { x.done = x.done.includes('me') ? [] : ['me']; emit(gid + ':homework'); } },
+    async addExam(gid, o) { box(gid).exams.push({ id: id(), subject: o.subject, topics: o.topics || '', date: o.date, by: 'me', createdAt: Date.now() }); emit(gid + ':exams'); },
+    async deleteSchoolItem(gid, kind, iid) { box(gid)[kind] = box(gid)[kind].filter(x => x.id !== iid); emit(gid + ':' + kind); },
+    watchTimetable(gid, cb) { return on(gid + ':tt', () => cb(copy(box(gid).timetable))); },
+    async saveTimetable(gid, days) { box(gid).timetable = days; emit(gid + ':tt'); },
     watchComments(gid, pid, cb) { return on(gid + ':c:' + pid, () => cb((box(gid).comments[pid] || []).slice().sort((a, b) => a.createdAt - b.createdAt).map(copy))); },
     async addPhoto(gid, img) { const iid = id(); box(gid).images.unshift({ id: iid, by: 'me', thumb: img.thumb.data, w: img.full.w, h: img.full.h, createdAt: Date.now() }); box(gid).imageData[iid] = img.full.data; emit(gid + ':images'); return iid; },
     async addPhotos(gid, imgs) { for (const im of imgs) await this.addPhoto(gid, im); touch(gid, `${me.name} הוסיף/ה ${imgs.length === 1 ? 'תמונה' : imgs.length + ' תמונות'} לאלבום`); },

@@ -130,6 +130,23 @@ service cloud.firestore {
       }
 
       // what the kids said
+      // school groups: homework (each member ticks only their own "done"), exams, the timetable
+      match /homework/{hid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow update: if isMember(gid) && onlyChanges(['done'])
+          && request.resource.data.done.toSet().difference(resource.data.done.toSet()).union(resource.data.done.toSet().difference(request.resource.data.done.toSet())).hasOnly([me()]);
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+      match /exams/{xid} {
+        allow read: if isMember(gid);
+        allow create: if isMember(gid) && request.resource.data.by == me();
+        allow delete: if isMember(gid) && (resource.data.by == me() || isOwner(gid));
+      }
+      match /school/{sid} {
+        allow read, write: if isMember(gid);
+      }
+
       match /quotes/{qid} {
         allow read: if isMember(gid);
         allow create: if isMember(gid) && request.resource.data.by == me();

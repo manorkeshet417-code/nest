@@ -20,7 +20,7 @@ export async function LiveBackend(cfg) {
   let me = null;
   const preview = m => m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
   const touch = (gid, text) => updateDoc(doc(db, 'groups', gid), { lastMessage: text.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id }).catch(() => {});
-  const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50], capsules: ['openAt', 'asc', 100], quotes: ['createdAt', 'desc', 200] };
+  const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50], capsules: ['openAt', 'asc', 100], quotes: ['createdAt', 'desc', 200], homework: ['due', 'asc', 150], exams: ['date', 'asc', 100] };
   const blobCol = s => s.t === 'g' ? collection(db, 'groups', s.id, 'blobs') : collection(db, 'chats', s.id, 'blobs');
   // videos: base64 split across documents (each under Firestore's 1 MB limit)
   async function uploadVideo(s, v) {
@@ -71,7 +71,7 @@ export async function LiveBackend(cfg) {
     watchGroups(cb, err) { return onSnapshot(query(collection(db, 'groups'), where('members', 'array-contains', me.id)), s => cb(s.docs.map(read)), err); },
     async createGroup(o) {
       const ref = doc(collection(db, 'groups')), code = newCode(), b = writeBatch(db);
-      b.set(ref, { name: o.name, emoji: o.emoji, color: o.color, ownerId: me.id, members: [me.id], inviteCode: code, createdAt: serverTimestamp(), lastAt: serverTimestamp(), lastMessage: '', lastBy: me.id });
+      b.set(ref, { name: o.name, emoji: o.emoji, color: o.color, type: o.type || 'family', safety: o.safety !== false, ownerId: me.id, members: [me.id], inviteCode: code, createdAt: serverTimestamp(), lastAt: serverTimestamp(), lastMessage: '', lastBy: me.id });
       b.set(doc(db, 'invites', code), { groupId: ref.id, groupName: o.name, emoji: o.emoji, color: o.color });
       await b.commit(); return ref.id;
     },
@@ -173,6 +173,13 @@ export async function LiveBackend(cfg) {
     async answerDay(gid, key, t) { await setDoc(doc(db, 'groups', gid, 'days', key), { answers: { [me.id]: { t, at: Date.now() } } }, { merge: true }); touch(gid, `${me.name} ענה/תה על שאלת היום`); },
 
     /* family quotes */
+    /* school groups: homework (each member ticks their own), exams, the weekly timetable */
+    async addHomework(gid, o) { await addDoc(collection(db, 'groups', gid, 'homework'), { subject: o.subject, text: o.text, due: o.due, by: me.id, done: [], createdAt: serverTimestamp() }); touch(gid, `${me.name} הוסיף/ה שיעורי בית ב${o.subject}`); },
+    toggleHomework(gid, h) { return updateDoc(doc(db, 'groups', gid, 'homework', h.id), { done: (h.done || []).includes(me.id) ? arrayRemove(me.id) : arrayUnion(me.id) }); },
+    async addExam(gid, o) { await addDoc(collection(db, 'groups', gid, 'exams'), { subject: o.subject, topics: o.topics || '', date: o.date, by: me.id, createdAt: serverTimestamp() }); touch(gid, `${me.name} הוסיף/ה מבחן ב${o.subject}`); },
+    deleteSchoolItem(gid, kind, id) { const b = writeBatch(db); b.delete(doc(db, 'groups', gid, kind, id)); return b.commit(); },
+    watchTimetable(gid, cb, err) { return onSnapshot(doc(db, 'groups', gid, 'school', 'timetable'), s => cb(s.exists() ? (s.data().days || {}) : {}), err); },
+    saveTimetable(gid, days) { return setDoc(doc(db, 'groups', gid, 'school', 'timetable'), { days, by: me.id, updatedAt: serverTimestamp() }); },
     async addQuote(gid, o) { await addDoc(collection(db, 'groups', gid, 'quotes'), { text: o.text, who: o.who, age: o.age || '', by: me.id, laughs: [], createdAt: serverTimestamp() }); touch(gid, `${me.name} הוסיף/ה ציטוט של ${o.who}`); },
     laugh(gid, q) { return updateDoc(doc(db, 'groups', gid, 'quotes', q.id), { laughs: q.laughs.includes(me.id) ? arrayRemove(me.id) : arrayUnion(me.id) }); },
     deleteQuote(gid, id) { const b = writeBatch(db); b.delete(doc(db, 'groups', gid, 'quotes', id)); return b.commit(); },

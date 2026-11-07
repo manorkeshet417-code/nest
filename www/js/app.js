@@ -165,6 +165,8 @@ function openGroup(gid) {
   closeGroup(); S.gid = gid; S.gtab = 'feed'; S.data = { posts: [], messages: [], events: [], images: [], lists: [] };
   const watchKind = k => be.watch(gid, k, async list => { S.data[k] = list; if (k === 'posts') await loadUsers(list.map(p => p.authorId)); softRender(); }, fail);
   ['posts', 'events', 'images', 'lists', 'capsules', 'quotes'].forEach(k => unsub.group.push(watchKind(k)));
+  S.data.homework = []; S.data.exams = []; S.data.timetable = {};
+  if (gtype(group()) === 'school') { ['homework', 'exams'].forEach(k => unsub.group.push(watchKind(k))); unsub.group.push(be.watchTimetable(gid, d => { S.data.timetable = d; softRender(); }, fail)); }
   S.day = { answers: {} };
   unsub.group.push(be.watchDay(gid, iso(new Date()), async d => { S.day = d; await loadUsers(Object.keys(d.answers || {})); softRender(); }, fail));
   unsub.group.push(be.watchMessages({ t: 'g', id: gid }, async list => {
@@ -268,7 +270,8 @@ function rootTabs() {
 }
 function groupTabs() {
   const n = S.gtab === 'chat' ? 0 : groupChatUnread();
-  return tabbar([['feed', 'פיד', 'feed', 0], ['chat', 'צ׳אט', 'chat', n], ['events', 'אירועים', 'cal', 0], ['album', 'אלבום', 'photo', 0], ['together', 'ביחד', 'together', 0]], S.gtab, 'gtab');
+  const last = gtype(group()) === 'school' ? ['school', 'לימודים', 'book', 0] : ['together', 'ביחד', 'together', 0];
+  return tabbar([['feed', 'פיד', 'feed', 0], ['chat', 'צ׳אט', 'chat', n], ['events', 'אירועים', 'cal', 0], ['album', 'אלבום', 'photo', 0], last], S.gtab, 'gtab');
 }
 
 /* ---------- login ---------- */
@@ -371,8 +374,8 @@ function viewProfile() {
   <p class="section-f">${b ? (b.days === 0 ? 'היום! מזל טוב 🎉' : `עוד ${b.days} ימים. `) + 'המשפחה תראה את התאריך בלוח האירועים.' : 'כך המשפחה תדע מתי לחגוג איתך. הוא יופיע בלוח האירועים של הקבוצות.'}</p>
   <div class="section-h">SOS · אנשי קשר לחירום</div>
   <div class="list">${(S.sos || []).map((c, i) => `<div class="row">${c.uid ? avatar(S.members[c.uid] || { id: c.uid, name: c.name }, 34) : `<span class="sos-ic">${icon('phoneF', 18)}</span>`}<span class="body"><span class="t">${esc(c.name)}</span><span class="sub" dir="ltr" style="text-align:right">${esc(c.phone || 'שיחה ב-Nest')}</span></span><button class="icon-btn muted sm" data-a="sos-del" data-v="${i}" aria-label="הסרה">${icon('xmark', 16)}</button></div>`).join('')}
-  ${(S.sos || []).length < 5 ? `<button class="row" data-a="sos-add">${icon('phone', 22)}<span class="body t acc">הוספת מספר טלפון</span></button>${local() ? '' : `<button class="row" data-a="sos-add-member">${icon('people', 22)}<span class="body t acc">הוספה מהמשפחה (שיחה ב-Nest)</span></button>`}` : ''}</div>
-  <p class="section-f">לחיצה ארוכה על כפתור SOS במסך הקבוצות: מחייגת לאיש הקשר הראשון ושולחת לכל הקבוצות התראת חירום עם המיקום שלך. רק את/ה רואה את הרשימה הזו.</p>
+  ${(S.sos || []).length < 5 ? `${'contacts' in navigator && 'select' in (navigator.contacts || {}) ? `<button class="row" data-a="sos-contacts">${icon('people', 22)}<span class="body t acc">בחירה מאנשי הקשר בטלפון</span></button>` : ''}<button class="row" data-a="sos-add">${icon('phone', 22)}<span class="body t acc">הוספת מספר טלפון</span></button>${local() ? '' : `<button class="row" data-a="sos-add-member">${icon('people', 22)}<span class="body t acc">בן משפחה בלי מספר (שיחה ב-Nest)</span></button>`}` : ''}</div>
+  <p class="section-f">לחיצה ארוכה על SOS במסך הקבוצות פותחת את אפליקציית הטלפון שלך עם המספר הראשון ומחייגת, ושולחת התראת חירום עם המיקום לקבוצות שבהן SOS פעיל. רק את/ה רואה את הרשימה הזו.</p>
   <div class="section-h">מיקרופון ומצלמה</div>
   <div class="list"><div class="row">${icon('video', 22)}<span class="body t">לשיחות ולהודעות קוליות</span>${mediaPermRow()}</div></div>
   <p class="section-f">${S.mediaPerm && S.mediaPerm.mic === 'denied' ? 'הדפדפן זוכר סירוב קודם. "ניסיון שוב" שואל מחדש, ואם לא יוצא חלון, "איך מתקנים" מראה איפה משחררים.' : 'לשיחה קולית מספיק מיקרופון. כשהדפדפן שואל, לחצו "אפשר" ולא לסגור את החלון, אחרת Chrome חוסם אוטומטית.'}</p>
@@ -387,11 +390,11 @@ function viewProfile() {
 
 /* ---------- group ---------- */
 function viewGroup(g) {
-  const add = S.gtab === 'together' ? { lists: ['new-list', 'רשימה חדשה'], capsules: ['new-capsule', 'קפסולה חדשה'], quotes: ['new-quote', 'ציטוט חדש'] }[S.hub] : { events: ['new-event', 'אירוע חדש'], album: ['pick', 'הוספת תמונות', 'album'] }[S.gtab];
+  const add = S.gtab === 'together' ? { lists: ['new-list', 'רשימה חדשה'], capsules: ['new-capsule', 'קפסולה חדשה'], quotes: ['new-quote', 'ציטוט חדש'] }[S.hub] : { school: ['school-add', 'הוספה'], events: ['new-event', 'אירוע חדש'], album: ['pick', 'הוספת תמונות', 'album'] }[S.gtab];
   const trail = (add ? `<button class="nb-btn" data-a="${add[0]}"${add[2] ? ` data-v="${add[2]}"` : ''} aria-label="${add[1]}">${icon('plus', 24, 2.2)}</button>` : '') + `<button class="nb-btn" data-a="group-info" aria-label="פרטי הקבוצה">${icon('info', 23)}</button>`;
   const hubTitle = { lists: 'רשימות', capsules: 'קפסולות זמן', quotes: 'מה הילדים אמרו' }[S.hub];
   const head = bar({ inline: true, back: hubTitle ? 'ביחד' : 'קבוצות', titleHtml: hubTitle ? esc(hubTitle) : `<button class="nb-tbtn" data-a="group-info"><span>${esc(g.emoji)}</span><span class="ell">${esc(g.name)}</span></button>`, trail });
-  return head + ({ feed: viewFeed, chat: viewGroupChat, events: viewEvents, album: viewAlbum, together: viewTogether }[S.gtab] || viewFeed)(g);
+  return head + ({ feed: viewFeed, chat: viewGroupChat, events: viewEvents, album: viewAlbum, together: viewTogether, school: viewSchool }[S.gtab] || viewFeed)(g);
 }
 
 function imgFor(iid) { const im = S.data.images.find(i => i.id === iid); return full[iid] || (im && im.thumb) || ''; }
@@ -586,9 +589,15 @@ function playAudio(id) {
   syncAudioUI();
 }
 
+/* ---------- group types ---------- */
+const GTYPES = { family: ['משפחה', '🏠'], friends: ['חברים', '🎉'], school: ['בית ספר', '🎒'] };
+const gtype = g => (g && GTYPES[g.type]) ? g.type : 'family';
+// "הגעתי בשלום" and SOS: on by default in a family group, off in friends/school until the owner turns them on
+const safetyOn = g => !!g && (typeof g.safety === 'boolean' ? g.safety : gtype(g) === 'family');
+
 /* ---------- SOS & check-in ---------- */
 async function toAllGroups(m) {
-  const gs = S.groups; if (!gs.length) { hud('עוד אין קבוצות לשלוח אליהן', true); return 0; }
+  const gs = S.groups.filter(safetyOn); if (!gs.length) { hud(S.groups.length ? 'באף קבוצה לא הופעלו "הגעתי בשלום" ו-SOS' : 'עוד אין קבוצות לשלוח אליהן', true); return 0; }
   const r = await Promise.allSettled(gs.map(g => be.sendMessage({ t: 'g', id: g.id }, Object.assign({}, m))));
   const ok = r.filter(x => x.status === 'fulfilled').length;
   if (!ok) fail(r[0].reason);
@@ -652,12 +661,22 @@ function sosDial() {
   if (ph) location.href = telOf(ph.phone);
   else if (nest) { if (closeForm) closeForm(); startCall(nest.uid, 'audio'); }
 }
+async function sosPhoneContact() {
+  try {
+    const [c] = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+    if (!c) return;
+    const phone = (c.tel || [])[0], name = ((c.name || [])[0] || '').trim() || phone;
+    if (!phone) { hud('לאיש הקשר הזה אין מספר טלפון', true); return; }
+    const l = (S.sos || []).concat([{ name: name.slice(0, 30), phone: phone.slice(0, 20) }]).slice(0, 5);
+    await be.saveSos(l); S.sos = l; hud('איש הקשר נשמר'); render();
+  } catch (e) { if (e && e.name !== 'AbortError') sosContactForm(); }
+}
 function sosSheet(fired) {
-  const l = S.sos || [];
+  const l = S.sos || [], ph = l.find(c => c.phone);
   const rows = l.map((c, i) => c.phone ? `<a class="row" href="${esc(telOf(c.phone))}" style="text-decoration:none;color:inherit"><span class="sos-ic">${icon('phoneF', 18)}</span><span class="body"><span class="t">${esc(c.name)}</span><span class="sub" dir="ltr" style="text-align:right">${esc(c.phone)}</span></span><span class="val acc">חיוג</span></a>`
     : `<button class="row" data-a="sos-call" data-v="${i}">${avatar(S.members[c.uid] || { id: c.uid, name: c.name }, 34)}<span class="body"><span class="t">${esc(c.name)}</span><span class="sub">שיחה ב-Nest</span></span><span class="val acc">התקשרות</span></button>`).join('');
   const em = [['100', 'משטרה'], ['101', 'מד"א'], ['102', 'כיבוי אש']].map(([n, t]) => `<a class="row" href="tel:${n}" style="text-decoration:none;color:inherit"><span class="sos-ic red">${icon('phoneF', 18)}</span><span class="body t">${t}</span><span class="val" dir="ltr">${n}</span></a>`).join('');
-  formSheet({ title: fired ? 'SOS נשלח' : 'SOS', body: `<p class="muted" style="margin:0 4px 12px">${fired ? 'כל הקבוצות קיבלו התראת חירום, והמיקום נשלח אחריה.' : 'לחיצה ארוכה על SOS שולחת התראה לכל הקבוצות ומחייגת לאיש הקשר הראשון.'}</p>
+  formSheet({ title: fired ? 'SOS נשלח' : 'SOS', body: `${ph ? `<a class="btn filled sos-dial" href="${esc(telOf(ph.phone))}">${icon('phoneF', 22)} חיוג ל${esc(ph.name)}</a>` : ''}<p class="muted" style="margin:0 4px 12px">${fired ? 'ההתראה והמיקום נשלחו לקבוצות שבהן SOS פעיל. אם החייגן לא נפתח, לחצו על הכפתור האדום.' : 'לחיצה ארוכה על SOS מחייגת דרך אפליקציית הטלפון לאיש הקשר הראשון ושולחת התראה לקבוצות.'}</p>
     ${l.length ? `<div class="section-h">אנשי הקשר שלך</div><div class="list">${rows}</div>` : `<div class="list"><button class="row" data-a="sos-add">${icon('phone', 22)}<span class="body t acc">הגדרת איש קשר לחירום</span></button></div>`}
     <div class="section-h">מוקדי חירום</div><div class="list">${em}</div>` });
 }
@@ -816,6 +835,74 @@ function viewLists(g) {
   }).join('') + (lists.some(l => (l.items || []).some(x => x.d)) ? '' : '');
 }
 
+/* ---------- school ---------- */
+const HEB_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי'];
+function dueLabel(d) {
+  const n = daysTo(d);
+  return n < 0 ? 'עבר' : n === 0 ? 'היום' : n === 1 ? 'מחר' : n < 7 ? 'יום ' + DAYS[new Date(d + 'T12:00').getDay()] : `בעוד ${n} ימים`;
+}
+function viewSchool(g) {
+  const today = new Date().getDay(), day = S.ttDay !== undefined ? S.ttDay : (today === 6 ? 0 : today);
+  const tt = S.data.timetable || {}, lessons = tt[day] || [];
+  const hw = (S.data.homework || []).filter(h => daysTo(h.due) >= -1 || !(h.done || []).includes(me()));
+  const open = hw.filter(h => !(h.done || []).includes(me())).length;
+  const exams = (S.data.exams || []).filter(x => daysTo(x.date) >= 0);
+  const f = S.focus, left = f ? Math.max(0, Math.round((f.end - Date.now()) / 1000)) : 0;
+  return `<div class="school-top">
+    <div class="focus-card">${icon('timer', 26)}<div class="body"><b>זמן ריכוז</b><span id="focus-left">${f ? fmtDur(left) + ' נשארו' : 'בלי טלפון, רק לימוד'}</span></div>
+      ${f ? '<button class="btn tinted sm" data-a="focus-stop">עצירה</button>' : '<button class="btn filled sm" data-a="focus" data-v="25">25 דק׳</button><button class="btn tinted sm" data-a="focus" data-v="45">45</button>'}</div>
+  </div>
+  <div class="section-h"><span>שיעורי בית${open ? ` · ${open} פתוחים` : ''}</span><button class="nb-btn" data-a="hw-add">הוספה</button></div>
+  ${hw.length ? `<div class="list lst">${hw.map(h => { const done = (h.done || []).includes(me()), n = daysTo(h.due), cnt = (h.done || []).length; return `<div class="row li${done ? ' done' : ''}"><button class="check" data-a="hw-toggle" data-v="${esc(h.id)}" aria-pressed="${done}" aria-label="סיימתי">${icon('check', 15, 2.6)}</button><span class="body"><span class="t" dir="auto"><b class="subj">${esc(h.subject)}</b> ${esc(h.text)}</span><span class="sub">${dueLabel(h.due)}${cnt ? ` · ${cnt} סיימו` : ''}</span></span>${!done && n <= 1 && n >= 0 ? '<span class="due-hot">דחוף</span>' : ''}${h.by === me() || isOwner(g) ? `<button class="icon-btn muted sm" data-a="school-del" data-v="homework:${esc(h.id)}" aria-label="מחיקה">${icon('xmark', 14)}</button>` : ''}</div>`; }).join('')}</div>`
+    : '<div class="list"><button class="row" data-a="hw-add"><span class="body t acc">אין שיעורי בית. הוספה</span></button></div>'}
+  <div class="section-h"><span>מבחנים</span><button class="nb-btn" data-a="exam-add">הוספה</button></div>
+  ${exams.length ? `<div class="exam-row">${exams.map(x => { const n = daysTo(x.date); return `<div class="exam${n <= 3 ? ' soon' : ''}"><span class="exam-n">${n === 0 ? 'היום' : n}</span><span class="exam-u">${n === 0 ? '' : n === 1 ? 'יום' : 'ימים'}</span><b dir="auto">${esc(x.subject)}</b>${x.topics ? `<span class="exam-t" dir="auto">${esc(x.topics)}</span>` : ''}${x.by === me() || isOwner(g) ? `<button class="exam-x" data-a="school-del" data-v="exams:${esc(x.id)}" aria-label="מחיקה">${icon('xmark', 12)}</button>` : ''}</div>`; }).join('')}</div>`
+    : '<div class="list"><button class="row" data-a="exam-add"><span class="body t acc">אין מבחנים קרובים. הוספה</span></button></div>'}
+  <div class="section-h"><span>מערכת שעות</span><button class="nb-btn" data-a="tt-edit">עריכה</button></div>
+  <div class="seg tt-days">${HEB_DAYS.map((d, i) => `<button data-a="tt-day" data-v="${i}" class="${i === day ? 'on' : ''}" aria-label="${d}">${'אבגדהו'[i]}׳</button>`).join('')}</div>
+  <div class="list" style="margin-top:8px">${lessons.length ? lessons.map((l, i) => `<div class="row"><span class="lesson-n">${i + 1}</span><span class="body t" dir="auto">${esc(l)}</span></div>`).join('') : `<button class="row" data-a="tt-edit"><span class="body t acc">${Object.keys(tt).length ? 'אין שיעורים ביום ' + HEB_DAYS[day] : 'הוספת מערכת שעות'}</span></button>`}</div>
+  <p class="section-f">כל חברי הקבוצה רואים ועורכים. כל אחד מסמן לעצמו מה סיים.</p>`;
+}
+function homeworkForm() {
+  const tomorrow = iso(new Date(Date.now() + 864e5));
+  formSheet({ title: 'שיעורי בית', action: 'הוספה', body: `<div class="list"><div class="field"><input id="hw-subj" placeholder="מקצוע (למשל: מתמטיקה)" maxlength="30" autofocus></div><div class="field"><input id="hw-text" placeholder="מה צריך לעשות" maxlength="200"></div><div class="field"><label for="hw-due">להגשה</label><input id="hw-due" type="date" value="${tomorrow}"></div></div>`,
+    onOk: async fs => {
+      const subject = fs.querySelector('#hw-subj').value.trim(), text = fs.querySelector('#hw-text').value.trim(), due = fs.querySelector('#hw-due').value;
+      if (!subject || !text || !due) { hud('צריך מקצוע, משימה ותאריך', true); return false; }
+      await be.addHomework(S.gid, { subject, text, due }); haptic(10);
+    } });
+}
+function examForm() {
+  formSheet({ title: 'מבחן', action: 'הוספה', body: `<div class="list"><div class="field"><input id="ex-subj" placeholder="מקצוע" maxlength="30" autofocus></div><div class="field"><input id="ex-top" placeholder="חומר למבחן (לא חובה)" maxlength="120"></div><div class="field"><label for="ex-date">תאריך</label><input id="ex-date" type="date" value="${iso(new Date(Date.now() + 7 * 864e5))}"></div></div>`,
+    onOk: async fs => {
+      const subject = fs.querySelector('#ex-subj').value.trim(), topics = fs.querySelector('#ex-top').value.trim(), date = fs.querySelector('#ex-date').value;
+      if (!subject || !date) { hud('צריך מקצוע ותאריך', true); return false; }
+      await be.addExam(S.gid, { subject, topics, date }); haptic(10);
+    } });
+}
+function timetableForm() {
+  const tt = S.data.timetable || {};
+  formSheet({ title: 'מערכת שעות', action: 'שמירה', tall: true, body: `<p class="section-f" style="padding-top:0">שיעור בכל שורה, לפי הסדר.</p>${HEB_DAYS.map((d, i) => `<div class="section-h">${d}</div><div class="list"><textarea class="tt-in" data-d="${i}" rows="4" dir="auto" placeholder="מתמטיקה&#10;אנגלית&#10;…">${esc((tt[i] || []).join('\n'))}</textarea></div>`).join('')}`,
+    onOk: async fs => {
+      const days = {};
+      fs.querySelectorAll('.tt-in').forEach(t => { const l = t.value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 12).map(x => x.slice(0, 40)); if (l.length) days[t.dataset.d] = l; });
+      await be.saveTimetable(S.gid, days); hud('המערכת נשמרה');
+    } });
+}
+let focusT = null;
+function focusStart(min) {
+  S.focus = { end: Date.now() + min * 60000, min }; haptic(10);
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+  clearInterval(focusT); focusT = setInterval(focusTick, 1000); render();
+}
+function focusStop() { S.focus = null; clearInterval(focusT); render(); }
+function focusTick() {
+  if (!S.focus) return;
+  const left = Math.round((S.focus.end - Date.now()) / 1000), el = $('#focus-left');
+  if (left <= 0) { const m = S.focus.min; focusStop(); chime(); notify('זמן הריכוז נגמר', `${m} דקות של לימוד. הגיע זמן הפסקה!`, 'focus'); hud(`כל הכבוד! ${m} דקות של ריכוז`); return; }
+  if (el) el.textContent = fmtDur(left) + ' נשארו';
+}
+
 /* ---------- group info ---------- */
 function inviteLink(g) { return location.origin + location.pathname + '?join=' + g.inviteCode; }
 function viewGroupInfo(g) {
@@ -826,7 +913,9 @@ function viewGroupInfo(g) {
     <div class="btn-row" style="width:100%"><button class="btn filled" data-a="share-invite">${icon('share', 18)} שליחת הזמנה</button><button class="btn tinted" data-a="copy-invite">${icon('link', 18)} העתקה</button></div></div>
   <div class="section-h">${g.members.length} חברים</div>
   <div class="list av">${ids.map(id => { const m = S.members[id] || { id }; const b = m.birthday ? nextBirthday(m.birthday) : null; return `<${id !== u.id ? 'button' : 'div'} class="row"${id !== u.id ? ` data-a="member" data-v="${esc(id)}"` : ''}>${avatar(m, 40)}<span class="body"><span class="t">${esc(nameOf(m))}${id === u.id ? ' <span style="color:var(--label2)">(את/ה)</span>' : ''}</span>${id === g.ownerId || b ? `<span class="sub">${id === g.ownerId ? 'בעלים' : ''}${id === g.ownerId && b ? ' · ' : ''}${b ? `🎂 ${b.days === 0 ? 'היום!' : `בעוד ${b.days} ימים`}` : ''}</span>` : ''}</span>${id !== u.id ? `<span class="chev">${icon('chev', 16)}</span>` : ''}</${id !== u.id ? 'button' : 'div'}>`; }).join('')}</div>
-  ${owner ? `<div class="section-h">ניהול הקבוצה</div><div class="list"><button class="row blue" data-a="edit-group">עריכת שם, אייקון וצבע</button><button class="row blue" data-a="new-code">החלפת קוד ההזמנה</button><button class="row red" data-a="delete-group">מחיקת הקבוצה</button></div>
+  <div class="section-h">הגעתי בשלום ו-SOS</div><div class="list"><div class="row">${icon('shield', 22)}<span class="body t">${GTYPES[gtype(g)][1]} ${GTYPES[gtype(g)][0]} · ${safetyOn(g) ? 'פעיל' : 'כבוי'}</span>${owner ? `<button class="btn tinted sm" data-a="safety-toggle">${safetyOn(g) ? 'כיבוי' : 'הפעלה'}</button>` : ''}</div></div>
+  <p class="section-f">${safetyOn(g) ? 'התראות "הגעתי בשלום" ו-SOS של החברים מגיעות לקבוצה הזו.' : 'התראות "הגעתי בשלום" ו-SOS לא נשלחות לקבוצה הזו.'}${owner ? '' : ' רק המנהל/ת יכול/ה לשנות.'}</p>
+  ${owner ? `<div class="section-h">ניהול הקבוצה</div><div class="list"><button class="row blue" data-a="edit-group">עריכת שם, סוג, אייקון וצבע</button><button class="row blue" data-a="new-code">החלפת קוד ההזמנה</button><button class="row red" data-a="delete-group">מחיקת הקבוצה</button></div>
     <p class="section-f">החלפת הקוד מבטלת את הקישור הישן. מי שכבר בקבוצה נשאר.</p>`
   : `<div class="section-h"></div><div class="list"><button class="row red" data-a="leave-group">יציאה מהקבוצה</button></div>`}`;
 }
@@ -881,19 +970,31 @@ function openComments(pid) {
 
 /* ---------- forms in sheets ---------- */
 function groupForm(g) {
-  let color = g ? g.color : 'orange', emoji = g ? g.emoji : '🏠';
+  let color = g ? g.color : 'orange', emoji = g ? g.emoji : '🏠', type = gtype(g), safety = g ? safetyOn(g) : true, safetyTouched = !!g;
   const fs = formSheet({ title: g ? 'עריכת קבוצה' : 'קבוצה חדשה', action: g ? 'שמירה' : 'יצירה',
     body: `<div style="display:flex;justify-content:center;padding:10px 0 4px" id="gf-prev"></div>
+      <div class="section-h">סוג הקבוצה</div><div class="seg gtype" role="group" aria-label="סוג הקבוצה">${Object.entries(GTYPES).map(([k, [l, e]]) => `<button type="button" data-t="${k}" class="${k === type ? 'on' : ''}">${e} ${l}</button>`).join('')}</div>
+      <p class="section-f" id="gf-type-f"></p>
+      <div class="section-h">הגעתי בשלום ו-SOS</div><div class="seg" role="group" aria-label="הגעתי בשלום ו-SOS"><button type="button" data-s="1">פעיל</button><button type="button" data-s="0">כבוי</button></div>
+      <p class="section-f">כשפעיל, "הגעתי בשלום" וקריאות SOS של חברי הקבוצה נשלחים גם לכאן. רק המנהל/ת יכול/ה לשנות.</p>
       <div class="section-h">שם</div><div class="list"><div class="field"><input id="gf-name" maxlength="40" placeholder="למשל: משפחת לוי" value="${esc(g ? g.name : '')}" aria-label="שם הקבוצה" autofocus></div></div>
       <div class="section-h">אייקון</div><div class="emojis">${EMOJIS.map(e => `<button type="button" data-e="${e}" aria-pressed="${e === emoji}" aria-label="אייקון ${e}">${e}</button>`).join('')}</div>
       <div class="section-h">צבע</div><div class="colors">${COLORS.map(c => `<button type="button" data-c="${c}" style="--c:var(--g-${c})" aria-pressed="${c === color}" aria-label="צבע ${c}"></button>`).join('')}</div>`,
     async onOk(f) {
       const name = f.querySelector('#gf-name').value.trim();
       if (!name) { hud('תנו שם לקבוצה', true); f.querySelector('#gf-name').focus(); return false; }
-      if (g) { await be.updateGroup(g, { name, emoji, color }); hud('נשמר'); }
-      else { const gid = await be.createGroup({ name, emoji, color }); haptic(15); hud('הקבוצה נוצרה'); setTimeout(() => go('group', { gid }), 300); }
+      if (g) { await be.updateGroup(g, { name, emoji, color, type, safety }); hud('נשמר'); }
+      else { const gid = await be.createGroup({ name, emoji, color, type, safety }); haptic(15); hud('הקבוצה נוצרה'); setTimeout(() => go('group', { gid }), 300); }
     } });
   const prev = () => { fs.querySelector('#gf-prev').innerHTML = gtile({ emoji, color }, 'lg'); }; prev();
+  const syncType = () => {
+    fs.querySelectorAll('[data-t]').forEach(x => x.classList.toggle('on', x.dataset.t === type));
+    fs.querySelectorAll('[data-s]').forEach(x => x.classList.toggle('on', (x.dataset.s === '1') === safety));
+    fs.querySelector('#gf-type-f').textContent = { family: 'פיד, צ׳אט, אירועים, אלבום וכלי "ביחד" למשפחה.', friends: 'כמו משפחה, בלי "הגעתי בשלום" ו-SOS (אלא אם מפעילים).', school: 'לשון "לימודים": שיעורי בית, מבחנים, מערכת שעות וטיימר ריכוז.' }[type];
+  };
+  fs.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { type = b.dataset.t; if (!safetyTouched) safety = type === 'family'; if (!g) { emoji = GTYPES[type][1]; prev(); fs.querySelectorAll('[data-e]').forEach(x => x.setAttribute('aria-pressed', x.dataset.e === emoji)); } syncType(); });
+  fs.querySelectorAll('[data-s]').forEach(b => b.onclick = () => { safety = b.dataset.s === '1'; safetyTouched = true; syncType(); });
+  syncType();
   fs.querySelectorAll('[data-e]').forEach(b => b.onclick = () => { emoji = b.dataset.e; fs.querySelectorAll('[data-e]').forEach(x => x.setAttribute('aria-pressed', x === b)); prev(); });
   fs.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { color = b.dataset.c; fs.querySelectorAll('[data-c]').forEach(x => x.setAttribute('aria-pressed', x === b)); prev(); });
 }
@@ -1008,7 +1109,7 @@ function viewTogether(g) {
       <button class="hub-tile" data-a="open-hub" data-v="capsules" style="--c:var(--g-purple)"><span class="hub-ic">${icon('capsule', 26)}</span><b>קפסולות זמן</b><span>${caps.length ? `${sealed} נעולות${opened ? ` · ${opened} נפתחו` : ''}` : 'מכתב למשפחה של העתיד'}</span>${nextCap ? `<span class="hub-next">הבאה בעוד ${Math.max(1, Math.ceil((nextCap.openAt - now) / 864e5))} ימים</span>` : ''}</button>
       <button class="hub-tile" data-a="open-hub" data-v="quotes" style="--c:var(--g-pink)"><span class="hub-ic">${icon('quote', 26)}</span><b>מה הילדים אמרו</b><span>${S.data.quotes.length ? `${S.data.quotes.length} ציטוטים` : 'המשפטים שלא רוצים לשכוח'}</span></button>
       <button class="hub-tile" data-a="open-hub" data-v="lists" style="--c:var(--g-teal)"><span class="hub-ic">${icon('list', 26)}</span><b>רשימות</b><span>${S.data.lists.length ? `${S.data.lists.length} רשימות` : 'קניות, מטלות, מתנות'}</span></button>
-      <button class="hub-tile" data-a="checkin" style="--c:var(--g-green)"><span class="hub-ic">${icon('shield', 26)}</span><b>הגעתי בשלום</b><span>כולם יידעו בלחיצה אחת</span></button>
+      ${safetyOn(g) ? '' : '<!--'}<button class="hub-tile" data-a="checkin" style="--c:var(--g-green)"><span class="hub-ic">${icon('shield', 26)}</span><b>הגעתי בשלום</b><span>כולם יידעו בלחיצה אחת</span></button>${safetyOn(g) ? '' : '-->'}
     </div>`;
 }
 
@@ -1129,7 +1230,7 @@ const A = {
   'pick-video': b => { S.pickFor = b.dataset.v + '-video'; fileEl.accept = 'video/*'; fileEl.multiple = false; fileEl.value = ''; fileEl.click(); },
   'clear-vid': () => { S.vid = null; render(); },
   attach: async () => {
-    const acts = [{ label: '📷 תמונה', k: 'pick' }, { label: '🎬 סרטון (עד דקה)', k: 'pick-video' }, { label: '✅ הגעתי בשלום', k: 'checkin' }];
+    const acts = [{ label: '📷 תמונה', k: 'pick' }, { label: '🎬 סרטון (עד דקה)', k: 'pick-video' }].concat(S.screen === 'group' && safetyOn(group()) ? [{ label: '✅ הגעתי בשלום', k: 'checkin' }] : []);
     const r = await confirmSheet({ actions: acts }); const a = acts[r]; if (!a) return;
     A[a.k]({ dataset: { v: 'chat' } });
   },
@@ -1139,6 +1240,17 @@ const A = {
     if (n) { haptic(20); hud(n === 1 ? 'כולם בקבוצה יודעים שהגעת בשלום' : `עדכנת ${n} קבוצות שהגעת בשלום`); render(); }
   },
   'sos-help': () => sosSheet(),
+  'sos-contacts': () => sosPhoneContact(),
+  'safety-toggle': async () => { const g = group(); if (!g) return; try { await be.updateGroup(g, { safety: !safetyOn(g) }); hud(!safetyOn(g) ? 'הגעתי בשלום ו-SOS הופעלו בקבוצה' : 'הגעתי בשלום ו-SOS כובו בקבוצה'); } catch (e) { fail(e); } },
+  'school-add': async () => { const r = await confirmSheet({ actions: [{ label: '📚 שיעורי בית' }, { label: '📝 מבחן' }, { label: '🗓️ עריכת מערכת שעות' }] }); if (r === 0) homeworkForm(); if (r === 1) examForm(); if (r === 2) timetableForm(); },
+  'hw-add': () => homeworkForm(),
+  'exam-add': () => examForm(),
+  'tt-edit': () => timetableForm(),
+  'hw-toggle': async b => { const h = S.data.homework.find(x => x.id === b.dataset.v); if (!h) return; haptic(8); try { await be.toggleHomework(S.gid, h); } catch (e) { fail(e); } },
+  'school-del': async b => { const [kind, iid] = b.dataset.v.split(':'); const r = await confirmSheet({ actions: [{ label: 'מחיקה', destructive: true }] }); if (r !== 0) return; try { await be.deleteSchoolItem(S.gid, kind, iid); } catch (e) { fail(e); } },
+  'tt-day': b => { S.ttDay = +b.dataset.v; render(); },
+  'focus': b => focusStart(+b.dataset.v),
+  'focus-stop': () => focusStop(),
   'sos-add': () => sosContactForm(),
   'sos-add-member': () => sosMemberPick(),
   'sos-del': async b => { const l = (S.sos || []).filter((_, i) => i !== +b.dataset.v); try { await be.saveSos(l); S.sos = l; render(); } catch (e) { fail(e); } },
