@@ -8,3 +8,8 @@ export const FIREBASE_CONFIG = {
   messagingSenderId: '706079879278',
   appId: '1:706079879278:web:571f2795a863deeecd767f'
 };
+
+// Push notifications (free): the public Web Push key from Firebase console > Cloud Messaging,
+// and the Google Apps Script web app (push/Code.gs) that sends them.
+export const VAPID_KEY = 'BDD48oEVcvQqXvhpRyggAHapbo9Q_pP1Cl_m_y2owKziQ5ewmSaIdBPPtbJqlVNz87uNsV7VXD87t_r1L0Qql7w';
+export const PUSH_URL = '';

@@ -17,9 +17,9 @@ export async function LiveBackend(cfg) {
     return x;
   };
   const ucache = {};
-  let me = null;
+  let me = null, onAct = null;
   const preview = m => m.kind === 'sosok' ? '✅ ביטול SOS: אני בסדר' : m.kind === 'escort' ? '🚶 יצא/ה לדרך' + (m.text ? ' · ' + m.text : '') : m.kind === 'checkin' ? '✅ הגיע/ה בשלום' : m.kind === 'sos' ? (m.loc ? '📍 מיקום החירום' : '🆘 SOS! צריך/ה עזרה דחוף') : m.text || (m.image ? '📷 תמונה' : m.video ? '🎬 סרטון' : m.audio ? '🎤 הודעה קולית' : m.kind === 'call' ? '📞 שיחה' : '');
-  const touch = (gid, text) => updateDoc(doc(db, 'groups', gid), { lastMessage: text.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id }).catch(() => {});
+  const touch = (gid, text) => (onAct && onAct({ gid, text: text.slice(0, 90) }), updateDoc(doc(db, 'groups', gid), { lastMessage: text.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id }).catch(() => {}));
   const order = { posts: ['createdAt', 'desc', 60], events: ['date', 'asc', 100], images: ['createdAt', 'desc', 150], lists: ['createdAt', 'asc', 50], capsules: ['openAt', 'asc', 100], quotes: ['createdAt', 'desc', 200], homework: ['due', 'asc', 150], exams: ['date', 'asc', 100] };
   const blobCol = s => s.t === 'g' ? collection(db, 'groups', s.id, 'blobs') : collection(db, 'chats', s.id, 'blobs');
   // videos: base64 split across documents (each under Firestore's 1 MB limit)
@@ -34,6 +34,17 @@ export async function LiveBackend(cfg) {
 
   return {
     mode: 'live',
+    /* push notifications: this device's FCM token is kept in push/{uid}; the sender script reads it */
+    setOnActivity(fn) { onAct = fn; },
+    idToken() { return auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(null); },
+    async enablePush(swReg, vapidKey, muted) {
+      const M = await import(SDK + 'firebase-messaging.js');
+      if (!(await M.isSupported())) return null;
+      const token = await M.getToken(M.getMessaging(fb), { vapidKey, serviceWorkerRegistration: swReg });
+      if (token) await setDoc(doc(db, 'push', me.id), { tokens: arrayUnion(token), muted: muted || [], updatedAt: serverTimestamp() }, { merge: true });
+      return token;
+    },
+    savePushPrefs(p) { return setDoc(doc(db, 'push', me.id), p, { merge: true }); },
     rtc: { db, F, me: () => me && me.id },
 
     onAuth(cb) {
@@ -148,7 +159,7 @@ export async function LiveBackend(cfg) {
       await addDoc(msgCol(s), Object.assign({ authorId: me.id, createdAt: serverTimestamp(), reactions: {} }, m));
       const p = preview(m);
       if (s.t === 'g') touch(s.id, `${me.name}: ${p}`);
-      else updateDoc(scopeDoc(s), { lastMessage: p.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id, ['reads.' + me.id]: Date.now() }).catch(() => {});
+      else { updateDoc(scopeDoc(s), { lastMessage: p.slice(0, 90), lastAt: serverTimestamp(), lastBy: me.id, ['reads.' + me.id]: Date.now() }).catch(() => {}); if (onAct) onAct({ cid: s.id, text: p.slice(0, 90) }); }
     },
     react(s, mid, emoji) { return updateDoc(doc(msgCol(s), mid), { ['reactions.' + me.id]: emoji || deleteField() }); },
     async deleteMessage(s, m) { const b = writeBatch(db); b.delete(doc(msgCol(s), m.id)); await b.commit(); dropVideo(s, m.video); },

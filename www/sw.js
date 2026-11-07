@@ -42,6 +42,23 @@ self.addEventListener('fetch', e => {
   }
 });
 
+// Push from the Nest sender (push/Code.gs via Firebase Cloud Messaging): shown even when the app is closed
+self.addEventListener('push', e => {
+  let d = {};
+  try { const p = e.data.json(); d = p.data || p; } catch (x) {}
+  e.waitUntil((async () => {
+    const urgent = !!d.urgent, tag = d.tag || 'nest';
+    // the app is open in front of the user: it shows its own banner (safety alerts and tests still pop)
+    const ws = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (!urgent && tag !== 'test' && ws.some(w => w.visibilityState === 'visible' && w.focused)) return;
+    await self.registration.showNotification(d.title || 'Nest', {
+      body: d.body || '', tag, renotify: true, requireInteraction: urgent, lang: 'he', dir: 'rtl',
+      vibrate: urgent ? [600, 200, 600, 200, 600, 200, 600] : [200],
+      icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png', data: { url: d.url || './' }
+    });
+  })());
+});
+
 // Tapping a notification brings the app forward
 self.addEventListener('notificationclick', e => {
   e.notification.close();

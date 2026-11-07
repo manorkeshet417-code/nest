@@ -2,7 +2,7 @@
 import { $, $$, esc, haptic, LS, linkify, MONTHS, DAYS, iso, dayKey, hhmm, fmtDur, ago, listTime, dayLabel, daysTo, nextBirthday,
   COLORS, EMOJIS, REACTIONS, first, nameOf, userColor, chatId, avatar, gtile, prepImage, chatImage, blobToDataURL, recorderMime, icon,
   EMOJI_SETS, isJumbo, prepVideo, dataURLToObjectURL, questionFor, VIDEO_MAX_SEC, mediaHelp, inAppBrowser } from './util.js';
-import { FIREBASE_CONFIG } from './config.js';
+import { FIREBASE_CONFIG, VAPID_KEY, PUSH_URL } from './config.js';
 import { LiveBackend } from './backend-live.js';
 import { LocalBackend } from './backend-local.js';
 import { CallManager } from './calls.js';
@@ -103,8 +103,9 @@ function activity(key, title, body, lastAt, lastBy, viewing) {
   // SOS and late arrivals are driven by the live safety docs (evalSafety), never muted
   if (isSos(body)) return;
   if (key.startsWith('g:') && muted[key.slice(2)] && !isCheckin(body)) return;
-  if (isCheckin(body)) { notify(title, body, key); chime(); hud(body.slice(0, 70)); return; }
-  if (document.hidden) notify(title, body, key);
+  // with push on, the sender's push covers the background case (same tag, so never twice)
+  if (isCheckin(body)) { if (!(S.pushOn && document.hidden)) notify(title, body, key); chime(); hud(body.slice(0, 70)); return; }
+  if (document.hidden && !S.pushOn) notify(title, body, key);
   else if (!viewing) hud(`${title}: ${body}`.slice(0, 70));
 }
 
@@ -386,8 +387,8 @@ function viewProfile() {
   <div class="list"><div class="row">${icon('video', 22)}<span class="body t">לשיחות ולהודעות קוליות</span>${mediaPermRow()}</div></div>
   <p class="section-f">${S.mediaPerm && S.mediaPerm.mic === 'denied' ? 'הדפדפן זוכר סירוב קודם. "ניסיון שוב" שואל מחדש, ואם לא יוצא חלון, "איך מתקנים" מראה איפה משחררים.' : 'לשיחה קולית מספיק מיקרופון. כשהדפדפן שואל, לחצו "אפשר" ולא לסגור את החלון, אחרת Chrome חוסם אוטומטית.'}</p>
   <div class="section-h">התראות</div>
-  <div class="list"><div class="row">${icon('bell', 22)}<span class="body t">התראות על הודעות ושיחות</span>${perm === 'granted' ? '<span class="val">פעילות</span>' : perm === 'denied' ? '<span class="val">חסומות</span>' : perm === 'unsupported' ? '<span class="val">לא נתמך</span>' : '<button class="btn tinted sm" data-a="notif">הפעלה</button>'}</div></div>
-  <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : 'התראות, SOS ו"הגעתי בשלום" מגיעים כש-Nest פתוח או ברקע (לא אחרי סגירה מלאה של האפליקציה).'}</p>
+  <div class="list"><div class="row">${icon('bell', 22)}<span class="body t">התראות על הודעות ושיחות</span>${perm === 'granted' ? (S.pushOn ? '<span class="val" style="color:var(--ok)">גם כשסגור</span><button class="btn tinted sm" data-a="push-test">בדיקה</button>' : '<span class="val">פעילות</span>') : perm === 'denied' ? '<span class="val">חסומות</span>' : perm === 'unsupported' ? '<span class="val">לא נתמך</span>' : '<button class="btn tinted sm" data-a="notif">הפעלה</button>'}</div></div>
+  <p class="section-f">${perm === 'denied' ? 'ההתראות חסומות בהגדרות הדפדפן לאתר הזה.' : (S.pushOn ? 'ההתראות, SOS, שיחות ו"הגעתי בשלום" מגיעים גם כש-Nest סגור לגמרי.' : 'התראות, SOS ו"הגעתי בשלום" מגיעים כש-Nest פתוח או ברקע.')}</p>
   ${canOfferInstall() ? `<div class="section-h"></div><div class="list"><button class="row" data-a="install">${icon('sparkles', 22)}<span class="body t">הוספה למסך הבית</span><span class="chev">${icon('chev', 16)}</span></button></div>` : ''}
   ${onSite && !standalone() ? `<div class="section-h">דפדפן</div><div class="list"><a class="row" href="${esc(chromeLink())}" style="text-decoration:none;color:inherit">${icon('link', 22)}<span class="body t">פתיחה ב-Chrome</span><span class="chev">${icon('chev', 16)}</span></a><button class="row" data-a="copy-link">${icon('copy', 22)}<span class="body t">העתקת הקישור</span></button></div><p class="section-f">${inAppBrowser() ? 'את/ה עכשיו בתוך אפליקציה אחרת. ב-Chrome אפשר להתקין, להיכנס עם Google ולהתקשר.' : 'את/ה כבר בדפדפן. אפשר להתקין: ⋮ ← "התקנת אפליקציה".'}</p>` : ''}
   <div class="section-h"></div><div class="list"><button class="row red" data-a="sign-out">התנתקות</button></div>
@@ -600,6 +601,38 @@ function playAudio(id) {
   syncAudioUI();
 }
 
+/* ---------- push notifications (free: Firebase Cloud Messaging sent by a Google Apps Script) ---------- */
+async function setupPush() {
+  if (local() || !onSite || !('serviceWorker' in navigator) || !('Notification' in window) || Notification.permission !== 'granted' || !be.enablePush) return;
+  be.setOnActivity(pushOut);
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    S.pushOn = !!(await be.enablePush(reg, VAPID_KEY, Object.keys(muted)));
+    softRender();
+  } catch (e) { console.warn('push', e); }
+}
+// Tell the other members' phones: the sender script checks membership with my own sign-in
+async function pushOut(a) {
+  if (!PUSH_URL || local()) return false;
+  try {
+    const idToken = await be.idToken(); if (!idToken) return false;
+    const g = a.gid && S.groups.find(x => x.id === a.gid), sos = isSos(a.text);
+    const title = a.title || (a.gid ? (sos ? '🆘 SOS · ' : '') + (g ? `${g.emoji} ${g.name}` : 'Nest') : nameOf(S.user));
+    const tag = a.tag || (sos ? 'safety:' + me() : a.gid ? 'g:' + a.gid : 'c:' + a.cid);
+    const body = JSON.stringify({ idToken, gid: a.gid, cid: a.cid, to: a.to, test: a.test, title, body: a.text, tag, urgent: !!(a.urgent || sos), safe: isCheckin(a.text) });
+    await fetch(PUSH_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body });
+    return true;
+  } catch (e) { return false; }
+}
+// "Walk me home": the sender script pushes the family if the deadline passes without "הגעתי"
+async function pushEscort() {
+  if (!PUSH_URL || local()) return;
+  try {
+    const idToken = await be.idToken();
+    fetch(PUSH_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'escort', idToken, gids: S.groups.filter(safetyOn).map(g => g.id) }) }).catch(() => {});
+  } catch (e) {}
+}
+
 /* ---------- group types ---------- */
 const GTYPES = { family: ['משפחה', '🏠'], friends: ['חברים', '🎉'], school: ['בית ספר', '🎒'] };
 const gtype = g => (g && GTYPES[g.type]) ? g.type : 'family';
@@ -779,12 +812,14 @@ async function escortStart(dest, min) {
   const at = Date.now(), until = at + min * 60000, battery = await batteryPct();
   await Promise.all(S.groups.filter(safetyOn).map(g => be.setSafety(g.id, { mode: 'escort', at, until, dest, loc: null, battery })));
   toAllGroups({ kind: 'escort', text: dest, until });
+  pushEscort();
   startTracking(); haptic(15); hud(`בליווי. צפי הגעה ${hhmm(until)}`); render();
 }
 async function escortMore() {
   const m = mySafety(); if (!m || m.mode !== 'escort') return;
   const until = Math.max(m.until, Date.now()) + 10 * 60000;
   await Promise.all(m.gids.map(gid => be.updateSafety(gid, { until }).catch(() => {})));
+  pushEscort();
   hud(`צפי חדש: ${hhmm(until)}`);
 }
 // On the groups screen: family members who are on their way
@@ -933,7 +968,12 @@ async function startCall(uid, kind) {
   if (inAppBrowser()) { showMediaHelp(null, kind); return; }
   if (!navigator.mediaDevices || !window.RTCPeerConnection) { hud('הדפדפן הזה לא תומך בשיחות', true); return; }
   if (!(await prePermission(kind))) return;
-  try { await be.openChat(uid); await loadUsers([uid]); await calls.start(uid, kind); }
+  try {
+    await be.openChat(uid); await loadUsers([uid]);
+    // wake the other phone even if Nest is closed there
+    pushOut({ cid: chatId(me(), uid), to: uid, urgent: true, tag: 'call:' + me(), title: nameOf(S.user), text: kind === 'video' ? '📹 שיחת וידאו נכנסת' : '📞 שיחה נכנסת' });
+    await calls.start(uid, kind);
+  }
   catch (e) { fail(e); }
 }
 function renderIncoming() {
@@ -1426,7 +1466,7 @@ const A = {
   'escort': () => { if (closeForm) closeForm(); escortForm(); },
   'escort-done': () => safetyEnd(true),
   'escort-more': () => escortMore(),
-  'mute-toggle': () => { const g = group(); if (!g) return; if (muted[g.id]) delete muted[g.id]; else muted[g.id] = 1; LS.set('nest.muted', muted); hud(muted[g.id] ? 'הקבוצה הושתקה. SOS עדיין יגיע' : 'ההתראות חזרו'); render(); },
+  'mute-toggle': () => { const g = group(); if (!g) return; if (muted[g.id]) delete muted[g.id]; else muted[g.id] = 1; LS.set('nest.muted', muted); if (S.pushOn) be.savePushPrefs({ muted: Object.keys(muted) }).catch(() => {}); hud(muted[g.id] ? 'הקבוצה הושתקה. SOS עדיין יגיע' : 'ההתראות חזרו'); render(); },
   'notif-hide': () => { LS.set('nest.notifAsked', 1); render(); },
   'sos-contacts': () => sosPhoneContact(),
   'safety-toggle': async () => { const g = group(); if (!g) return; try { await be.updateGroup(g, { safety: !safetyOn(g) }); hud(!safetyOn(g) ? 'הגעתי בשלום ו-SOS הופעלו בקבוצה' : 'הגעתי בשלום ו-SOS כובו בקבוצה'); } catch (e) { fail(e); } },
@@ -1531,7 +1571,8 @@ const A = {
   },
   'copy-link': () => copyText(location.origin + location.pathname),
   'media-fix': () => showMediaHelp({ name: 'NotAllowedError' }, 'video'),
-  notif: async () => { LS.set('nest.notifAsked', 1); try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
+  'push-test': async () => { if (await pushOut({ test: true, title: 'Nest', text: 'בדיקה: ההתראות עובדות גם כש-Nest סגור 🎉' })) hud('התראת בדיקה נשלחה. היא תגיע תוך כמה שניות'); else hud('השליחה לא הצליחה. נסו שוב', true); },
+  notif: async () => { LS.set('nest.notifAsked', 1); setTimeout(setupPush, 500); try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
   install: async () => {
     if (installEvt) { const e = installEvt; e.prompt(); try { const c = await e.userChoice; if (c && c.outcome === 'accepted') LS.set('nest.noInstall', 1); } catch (x) {} installEvt = null; render(); return; }
     const h = installHelp();
@@ -1663,7 +1704,7 @@ async function boot() {
   be.onAuth(u => {
     S.booting = false; S.user = u;
     if (!u) { stopAll(); S.screen = 'root'; S.tab = 'groups'; S.anim = 'fade'; render(true); return; }
-    S.members[u.id] = u; watchAll(); S.anim = 'fade'; render(true);
+    S.members[u.id] = u; watchAll(); setupPush(); S.anim = 'fade'; render(true);
     if (S.joinCode) { const c = S.joinCode; S.joinCode = ''; setTimeout(() => joinForm(c), 400); }
   });
 }

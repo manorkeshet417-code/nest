@@ -27,6 +27,13 @@ service cloud.firestore {
       }
     }
 
+    // Push: each device's notification token + muted groups. Tokens are useless without the sender's
+    // server credentials; the sender reads them with the caller's own sign-in.
+    match /push/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && me() == uid;
+    }
+
     // Invite codes: anyone signed in who knows the code can look up which group it opens.
     match /invites/{code} {
       allow read: if signedIn();
