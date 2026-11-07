@@ -1,7 +1,7 @@
 // Nest app: state, screens and actions
 import { $, $$, esc, haptic, LS, linkify, MONTHS, DAYS, iso, dayKey, hhmm, fmtDur, ago, listTime, dayLabel, daysTo, nextBirthday,
   COLORS, EMOJIS, REACTIONS, first, nameOf, userColor, chatId, avatar, gtile, prepImage, chatImage, blobToDataURL, recorderMime, icon,
-  EMOJI_SETS, isJumbo, prepVideo, dataURLToObjectURL, questionFor, VIDEO_MAX_SEC } from './util.js';
+  EMOJI_SETS, isJumbo, prepVideo, dataURLToObjectURL, questionFor, VIDEO_MAX_SEC, mediaHelp, inAppBrowser } from './util.js';
 import { FIREBASE_CONFIG } from './config.js';
 import { LiveBackend } from './backend-live.js';
 import { LocalBackend } from './backend-local.js';
@@ -299,8 +299,7 @@ async function startDM(uid) {
 /* ---------- root: profile ---------- */
 let installEvt = null;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-// In-app browsers (the Google app, WhatsApp, Instagram, Facebook…) cannot install web apps at all
-const inAppBrowser = () => /GSA\/|FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|; wv\)/i.test(navigator.userAgent);
+// In-app browsers (the Google app, WhatsApp, Instagram…) cannot install web apps (inAppBrowser, from util)
 const canOfferInstall = () => onSite && !standalone();
 function installHelp() {
   const link = location.origin + location.pathname;
@@ -481,7 +480,7 @@ async function recStart() {
   if (mime === null) { hud('הדפדפן לא תומך בהקלטה', true); return; }
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-  catch (e) { hud('אין גישה למיקרופון', true); return; }
+  catch (e) { showMediaHelp(e, 'audio'); return; }
   const rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 24000 } : { audioBitsPerSecond: 24000 });
   const chunks = [];
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
@@ -547,15 +546,24 @@ const callUI = {
   incomingGone(id) { if (S.incoming && S.incoming.id === id) { const from = S.members[S.incoming.from]; S.incoming = null; ring(false); renderIncoming(); hud(`שיחה שלא נענתה מ${first(nameOf(from))}`, true); } },
   open: () => renderCall(), update: () => renderCall(), close: () => renderCall(),
   toast: m => hud(m, true),
+  mediaError: (e, kind) => showMediaHelp(e, kind),
   ended(info) {
     if (info.role !== 'caller') return;
     const status = info.status === 'ended' && info.dur > 0 ? 'done' : info.status === 'declined' ? 'declined' : 'missed';
     be.sendMessage({ t: 'c', id: chatId(me(), info.other) }, { kind: 'call', call: { kind: info.kind, dur: info.dur, status } }).catch(() => {});
   }
 };
+// Why the camera/microphone can't be used, and how to fix it on this device
+async function showMediaHelp(e, kind) {
+  const h = mediaHelp(e, kind);
+  const acts = h.link ? [{ label: 'העתקת הקישור' }, { label: 'הבנתי' }] : [{ label: 'הבנתי' }];
+  const r = await confirmSheet({ title: h.title, msg: h.msg, actions: acts });
+  if (h.link && r === 0) copyText(location.origin + location.pathname);
+}
 async function startCall(uid, kind) {
   if (!calls) { hud('שיחות קול ווידאו זמינות באתר, אחרי כניסה עם Google', true); return; }
   if (calls.state) return;
+  if (inAppBrowser()) { showMediaHelp(null, kind); return; }
   if (!navigator.mediaDevices || !window.RTCPeerConnection) { hud('הדפדפן הזה לא תומך בשיחות', true); return; }
   try { await be.openChat(uid); await loadUsers([uid]); await calls.start(uid, kind); }
   catch (e) { fail(e); }

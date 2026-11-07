@@ -271,3 +271,23 @@ export const QUESTIONS = [
   'מה הכי בא לך לעשות יחד בשבת הקרובה?', 'אם היית ממציא/ה חג חדש, מה חוגגים בו?', 'מה גורם לך לצחוק בכל פעם?'
 ];
 export function questionFor(dateKey) { let h = 0; for (const c of dateKey) h = (h * 33 + c.charCodeAt(0)) | 0; return QUESTIONS[Math.abs(h) % QUESTIONS.length]; }
+
+/* ---------- camera & microphone: say exactly why access failed and how to fix it ---------- */
+export const inAppBrowser = () => /GSA\/|FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|; wv\)/i.test(navigator.userAgent);
+const iosDevice = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+export function mediaHelp(err, kind) {
+  const what = kind === 'video' ? 'למצלמה ולמיקרופון' : 'למיקרופון';
+  const name = (err && err.name) || '';
+  if (inAppBrowser()) return { title: 'צריך לפתוח בדפדפן', msg: `האפליקציה פתוחה בתוך אפליקציה אחרת (גוגל, וואטסאפ או אינסטגרם), ושם אין גישה ${what}. פתחו את התפריט (⋮ או ···) ובחרו "פתיחה ב-Chrome"${iosDevice() ? ' או "פתיחה ב-Safari"' : ''}.`, link: true };
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return { title: 'הדפדפן לא תומך', msg: 'הדפדפן הזה לא מאפשר שיחות. פתחו את Nest ב-Chrome' + (iosDevice() ? ' או ב-Safari' : '') + '.', link: true };
+  if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError') {
+    const how = installed()
+      ? (iosDevice() ? 'פתחו את "הגדרות" באייפון ← Safari ← מצלמה ומיקרופון ← "אפשר". אחר כך סגרו ופתחו את Nest.' : 'לחיצה ארוכה על האייקון של Nest ← "פרטי אפליקציה" (ⓘ) ← הרשאות ← אפשרו מיקרופון' + (kind === 'video' ? ' ומצלמה' : '') + '.')
+      : (iosDevice() ? 'הקישו על "aA" בשורת הכתובת ← "הגדרות אתר" ← מצלמה ומיקרופון ← "אפשר". אחר כך רעננו את הדף.' : 'הקישו על הסמל שמשמאל לכתובת (🔒 או ⚙) ← "הרשאות" ← אפשרו מיקרופון' + (kind === 'video' ? ' ומצלמה' : '') + '. אחר כך רעננו את הדף.');
+    return { title: `הגישה ${what} חסומה`, msg: `בעבר נבחר "חסימה" כשהדפדפן ביקש רשות. ${how}` };
+  }
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return { title: kind === 'video' ? 'המצלמה תפוסה' : 'המיקרופון תפוס', msg: 'אפליקציה אחרת משתמשת בהם עכשיו (למשל שיחת וואטסאפ, זום או המצלמה). סגרו אותה ונסו שוב.' };
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') return { title: kind === 'video' ? 'לא נמצאה מצלמה' : 'לא נמצא מיקרופון', msg: 'לא מצאנו את ההתקן במכשיר הזה. ' + (kind === 'video' ? 'אפשר לנסות שיחה קולית במקום.' : '') };
+  return { title: `אין גישה ${what}`, msg: 'משהו חסם את הגישה. נסו לרענן את הדף, ולוודא שאתם ב-Chrome' + (iosDevice() ? ' או ב-Safari' : '') + '.' };
+}

@@ -26,6 +26,15 @@ export function CallManager(rtc, ui) {
     video: kind === 'video' ? { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 1280 } } : false
   });
 
+  // A video call whose camera is busy or missing carries on as a voice call
+  async function getMedia(kind) {
+    try { return await media(kind); }
+    catch (e) {
+      if (kind !== 'video' || !/NotReadable|NotFound|Overconstrained|TrackStart|Abort/.test(e.name || '')) throw e;
+      const s = await media('audio'); ui.toast('המצלמה לא זמינה, ממשיכים בשיחה קולית'); if (cur) cur.camOff = true; return s;
+    }
+  }
+
   function setup(role, kind, other) {
     const pc = new RTCPeerConnection(ICE), remote = new MediaStream();
     cur = { role, kind, other, pc, remote, local: null, unsubs: [], startedAt: 0, status: 'connecting', muted: false, camOff: false, facing: 'user' };
@@ -42,8 +51,8 @@ export function CallManager(rtc, ui) {
     if (cur) return;
     const pc = setup('caller', kind, other);
     ui.open();
-    try { cur.local = await media(kind); }
-    catch (e) { ui.toast(kind === 'video' ? 'אין גישה למצלמה או למיקרופון' : 'אין גישה למיקרופון'); cleanup(); return; }
+    try { cur.local = await getMedia(kind); }
+    catch (e) { cleanup(); ui.mediaError(e, kind); return; }
     cur.local.getTracks().forEach(t => pc.addTrack(t, cur.local));
     ui.update();
     const ref = doc(collection(db, 'calls'));
@@ -74,8 +83,8 @@ export function CallManager(rtc, ui) {
     const pc = setup('callee', call.kind, call.from);
     cur.id = call.id; cur.ref = doc(db, 'calls', call.id);
     ui.open();
-    try { cur.local = await media(call.kind); }
-    catch (e) { ui.toast('אין גישה למיקרופון'); await updateDoc(cur.ref, { status: 'declined' }).catch(() => {}); cleanup(); return; }
+    try { cur.local = await getMedia(call.kind); }
+    catch (e) { await updateDoc(cur.ref, { status: 'declined' }).catch(() => {}); cleanup(); ui.mediaError(e, call.kind); return; }
     cur.local.getTracks().forEach(t => pc.addTrack(t, cur.local));
     ui.update();
     pc.onicecandidate = e => { if (e.candidate) addDoc(collection(cur.ref, 'toCandidates'), e.candidate.toJSON()).catch(() => {}); };
