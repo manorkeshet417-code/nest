@@ -197,7 +197,7 @@ function render(navigated, chatChanged) {
   const solo = S.screen === 'chat' || S.screen === 'groupInfo';
   app.className = (bare ? 'bare ' : '') + (chatVisible() ? (S.screen === 'chat' ? 'chat-pad solo ' : 'chat-pad ') : solo ? 'solo ' : '') + (navigated && S.anim ? 'anim-' + S.anim : '');
   S.anim = '';
-  app.innerHTML = html; navEl.innerHTML = tabs;
+  app.innerHTML = (S.booting ? '' : openInBrowserBanner()) + html; navEl.innerHTML = tabs;
   $$('[data-draft]').forEach(el => { el.value = S.drafts[el.dataset.draft] || ''; grow(el); });
   updateSend(); updateTyping(); syncAudioUI();
   if (fid && !navigated) { const n = document.getElementById(fid); if (n) { n.focus({ preventScroll: true }); if (sel && n.setSelectionRange) try { n.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
@@ -220,6 +220,19 @@ function updateSend() {
   const p = $('#post-btn'); if (p) p.disabled = S.busy || !((S.drafts.post || '').trim() || S.img || S.vid);
 }
 
+// Inside the Google app (or WhatsApp/Instagram) the page runs in a built-in browser that can't install,
+// sign in with Google or use the microphone. These links hand the same address to the real browser.
+function openInBrowserBanner() {
+  if (!inAppBrowser()) return '';
+  const host = location.host, path = location.pathname + location.search;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const chrome = ios ? 'googlechromes://' + host + path
+    : 'intent://' + host + path + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(location.href) + ';end';
+  return '<div class="openin" role="alert"><div class="openin-t"><b>פתחו את Nest ב-Chrome</b><span>כאן, בתוך ' + (/GSA\//.test(navigator.userAgent) ? 'אפליקציית Google' : 'האפליקציה הזו') + ', אי אפשר להתקין, להיכנס עם Google או להתקשר.</span></div>' +
+    '<div class="openin-b"><a class="btn filled sm" href="' + esc(chrome) + '">פתיחה ב-Chrome</a>' +
+    (ios ? '<a class="btn tinted sm" href="' + esc('x-safari-https://' + host + path) + '">פתיחה ב-Safari</a>' : '') +
+    '<button class="btn tinted sm" data-a="copy-link">העתקת הקישור</button></div></div>';
+}
 function bar(o) {
   return `<header class="navbar${o.inline ? ' inline' : ''}"><div class="nb-in">
     <div class="nb-lead">${o.back ? `<button class="nb-btn" data-a="back" aria-label="חזרה ל${esc(o.back)}">${icon('back', 20)}<span class="nb-back-t">${esc(o.back)}</span></button>` : ''}</div>
@@ -1065,6 +1078,7 @@ const A = {
     }
     await refreshMediaPerm(); render();
   },
+  'copy-link': () => copyText(location.origin + location.pathname),
   'media-fix': () => showMediaHelp({ name: 'NotAllowedError' }, 'video'),
   notif: async () => { try { const p = await Notification.requestPermission(); hud(p === 'granted' ? 'ההתראות הופעלו' : 'ההתראות לא הופעלו', p !== 'granted'); } catch (e) {} render(); },
   install: async () => {
