@@ -233,7 +233,8 @@ service cloud.firestore {
     match /fr_users/{uid} {
       allow read: if signedIn();
       allow write: if signedIn() && me() == uid
-        && request.resource.data.keys().hasOnly(['name', 'photo', 'username', 'bio', 'following', 'birthday'])
+        && request.resource.data.keys().hasOnly(['name', 'photo', 'username', 'bio', 'following', 'birthday', 'saved'])
+        && (!('saved' in request.resource.data) || (request.resource.data.saved is list && request.resource.data.saved.size() <= 1000))
         && request.resource.data.name is string && request.resource.data.name.size() <= 40
         && (!('photo' in request.resource.data) || (request.resource.data.photo is string && request.resource.data.photo.size() <= 200000))
         && (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 150))
@@ -241,6 +242,13 @@ service cloud.firestore {
         && (!('username' in request.resource.data)
             || (resource != null && 'username' in resource.data && request.resource.data.username == resource.data.username)
             || getAfter(/databases/$(database)/documents/fr_usernames/$(request.resource.data.username)).data.uid == me());
+    }
+
+    // Activity: anyone signed in can leave a note (like / comment / follow) in someone's notifs; only they read it.
+    match /fr_users/{uid}/notifs/{nid} {
+      allow read, delete: if signedIn() && me() == uid;
+      allow create: if signedIn() && me() != uid && request.resource.data.from == me()
+        && request.resource.data.type in ['like', 'vlike', 'comment', 'follow', 'story'];
     }
 
     // Usernames: one owner each, first come first served.
