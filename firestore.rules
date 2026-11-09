@@ -289,6 +289,31 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.authorId == me();
     }
 
+    // Event pages: anyone signed in sees them; the creator builds the page; everyone RSVPs, votes and comments
+    match /fr_eventPages/{eid} {
+      function evOwner() { return get(/databases/$(database)/documents/fr_eventPages/$(eid)).data.ownerId; }
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerId == me();
+      allow update: if signedIn() && (
+        (resource.data.ownerId == me() && request.resource.data.ownerId == resource.data.ownerId)
+        || (onlyChanges(['rsvp']) && request.resource.data.rsvp.diff(resource.data.rsvp).affectedKeys().hasOnly([me()]))
+      );
+      allow delete: if signedIn() && resource.data.ownerId == me();
+      match /votes/{uid} {
+        allow read: if signedIn();
+        allow write: if signedIn() && me() == uid;
+      }
+      match /comments/{cid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.authorId == me() && request.resource.data.text.size() <= 1000;
+        allow delete: if signedIn() && (resource.data.authorId == me() || evOwner() == me());
+      }
+      match /media/{mid} {
+        allow read: if signedIn();
+        allow write: if signedIn() && evOwner() == me();
+      }
+    }
+
     // Invite codes: anyone signed in who knows the code can look up which group it opens.
     match /fr_invites/{code} {
       allow read: if signedIn();
